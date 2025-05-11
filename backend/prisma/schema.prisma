@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  googleId      String?   @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lots          Lot[]     @relation("Seller")
+  bids          Bid[]
+  profileImage  String?
+  notifications Notification[]
+}
+
+model Lot {
+  id          String    @id @default(uuid())
+  title       String
+  description String
+  startPrice  Float
+  currentPrice Float
+  images      String[]
+  startTime   DateTime
+  endTime     DateTime
+  status      String   @default("PENDING")
+  category    Category
+  sellerId    String
+  seller      User      @relation("Seller", fields: [sellerId], references: [id])
+  bids        Bid[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  notifications Notification[]
+}
+
+model Bid {
+  id        String   @id @default(uuid())
+  amount    Float
+  lotId     String
+  lot       Lot      @relation(fields: [lotId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // LOT_SOLD, BID_WON, LOT_CANCELLED
+  message   String
+  read      Boolean  @default(false)
+  lotId     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  lot       Lot?     @relation(fields: [lotId], references: [id])
+
+  @@index([userId])
+  @@index([lotId])
+}
+
+enum LotStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  PENDING
+}
+
+enum Category {
+  ANTIQUES
+  ART
+  AUTOMOBILES
+  BOOKS
+  CLOTHING
+  COLLECTIBLES
+  COMPUTERS
+  ELECTRONICS
+  FURNITURE
+  HOME_DECOR
+  JEWELRY
+  MUSICAL_INSTRUMENTS
+  SPORTS_EQUIPMENT
+  STAMPS
+  TOYS
+  VINTAGE_ITEMS
+  WATCHES
+  WINE
+  WINE_ACCESSORIES
+  OTHER
+} 
