@@ -63,6 +63,14 @@ const Navbar: React.FC = () => {
             <Button
               color="inherit"
               component={RouterLink}
+              to="/my-lots"
+              sx={{ mr: 2 }}
+            >
+              Мои лоты
+            </Button>
+            <Button
+              color="inherit"
+              component={RouterLink}
               to="/my-bids"
               sx={{ mr: 2 }}
             >

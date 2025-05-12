@@ -36,25 +36,39 @@ export const updateLotStatus = async (lotId: string) => {
           prev.amount > current.amount ? prev : current
         );
 
-        // Send notification to seller
-        await prisma.notification.create({
-          data: {
-            userId: lot.sellerId,
-            type: 'LOT_SOLD',
-            message: `Your lot "${lot.title}" has been sold for $${highestBid.amount}`,
-            lotId: lot.id
-          }
-        });
+        // Get buyer and seller information
+        const [buyer, seller] = await Promise.all([
+          prisma.user.findUnique({
+            where: { id: highestBid.userId },
+            select: { name: true, email: true }
+          }),
+          prisma.user.findUnique({
+            where: { id: lot.sellerId },
+            select: { name: true, email: true }
+          })
+        ]);
 
-        // Send notification to highest bidder
-        await prisma.notification.create({
-          data: {
-            userId: highestBid.userId,
-            type: 'BID_WON',
-            message: `You won the auction for "${lot.title}" with a bid of $${highestBid.amount}`,
-            lotId: lot.id
-          }
-        });
+        if (buyer && seller) {
+          // Send notification to seller
+          await prisma.notification.create({
+            data: {
+              userId: lot.sellerId,
+              type: 'LOT_SOLD',
+              message: `Ваш лот "${lot.title}" продан пользователю ${buyer.name} (${buyer.email}) за ${highestBid.amount}₽`,
+              lotId: lot.id
+            }
+          });
+
+          // Send notification to highest bidder
+          await prisma.notification.create({
+            data: {
+              userId: highestBid.userId,
+              type: 'BID_WON',
+              message: `Вы выиграли аукцион "${lot.title}" за ${highestBid.amount}₽. Контактные данные продавца: ${seller.name} (${seller.email})`,
+              lotId: lot.id
+            }
+          });
+        }
       }
       // If lot is cancelled, notify seller
       else if (newStatus === 'CANCELLED') {

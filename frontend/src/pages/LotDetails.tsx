@@ -17,12 +17,17 @@ import {
   Avatar,
   Divider,
   CircularProgress,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { format } from 'date-fns';
 import { io, Socket } from 'socket.io-client';
 import axios from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
+import { Delete as DeleteIcon } from '@mui/icons-material';
 
 interface Bid {
   id: string;
@@ -63,6 +68,7 @@ const LotDetails: React.FC = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchLot = async () => {
@@ -127,6 +133,25 @@ const LotDetails: React.FC = () => {
     } catch (err) {
       console.error('Ошибка при размещении ставки:', err);
       setError('Не удалось разместить ставку. Пожалуйста, попробуйте позже.');
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!lot) return;
+
+    try {
+      await axios.delete(`/api/lots/${lot.id}`);
+      setDeleteDialogOpen(false);
+      navigate('/my-lots');
+    } catch (err: any) {
+      console.error('Error deleting lot:', err);
+      console.error('Error response:', err.response);
+      setError(err.response?.data?.error || 'Не удалось удалить лот');
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -235,31 +260,46 @@ const LotDetails: React.FC = () => {
             )}
 
             {isOwner && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Вы продавец этого лота
-              </Alert>
+              <Box sx={{ mt: 2 }}>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Вы продавец этого лота
+                </Alert>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  fullWidth
+                  onClick={handleDeleteClick}
+                  startIcon={<DeleteIcon />}
+                >
+                  Удалить лот
+                </Button>
+              </Box>
             )}
           </Paper>
 
           <Paper sx={{ p: 2, mt: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Bid History
+              История ставок
             </Typography>
             <List>
               {lot.bids.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  No bids yet
+                  Пока нет ставок
                 </Typography>
               ) : (
                 lot.bids.map((bid) => (
                   <React.Fragment key={bid.id}>
                     <ListItem>
                       <ListItemAvatar>
-                        <Avatar src={bid.user.profileImage || undefined} />
+                        <Avatar
+                          src={bid.user.profileImage ? `${process.env.REACT_APP_API_URL}/uploads/${bid.user.profileImage}` : undefined}
+                        >
+                          {bid.user.name?.[0] || '?'}
+                        </Avatar>
                       </ListItemAvatar>
                       <ListItemText
-                        primary={`$${bid.amount.toFixed(2)}`}
-                        secondary={`${bid.user.name || 'Anonymous'} - ${format(new Date(bid.createdAt), 'PPp')}`}
+                        primary={`₽${bid.amount}`}
+                        secondary={`${bid.user.name || 'Аноним'} - ${format(new Date(bid.createdAt), 'PPp')}`}
                       />
                     </ListItem>
                     <Divider />
@@ -270,6 +310,25 @@ const LotDetails: React.FC = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Удаление лота</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Вы уверены, что хотите удалить "{lot?.title}"? Это действие нельзя отменить.
+            Все пользователи, сделавшие ставки на этот лот, получат уведомление об удалении.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Отменить</Button>
+          <Button onClick={handleDeleteConfirm} color="error">
+            Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

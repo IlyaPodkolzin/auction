@@ -299,7 +299,14 @@ router.patch('/:id/status', authenticateToken, async (req: Request & { user?: { 
 router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
   try {
     const lot = await prisma.lot.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
+      include: {
+        bids: {
+          select: {
+            userId: true
+          }
+        }
+      }
     });
 
     if (!lot) {
@@ -310,13 +317,38 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    if (lot.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Can only delete pending lots' });
-    }
+    // Get unique bidders before deleting the lot
+    const uniqueBidders = [...new Set(lot.bids.map(bid => bid.userId))];
+    const lotTitle = lot.title; // Save title for notifications
 
-    await prisma.lot.delete({
-      where: { id: req.params.id }
+    // Delete all related records in a transaction
+    await prisma.$transaction(async (prisma) => {
+      // Delete all bids for this lot
+      await prisma.bid.deleteMany({
+        where: { lotId: lot.id }
+      });
+
+      // Delete all notifications related to this lot
+      await prisma.notification.deleteMany({
+        where: { lotId: lot.id }
+      });
+
+      // Finally delete the lot
+      await prisma.lot.delete({
+        where: { id: lot.id }
+      });
     });
+
+    // Create notifications for all bidders after the lot is deleted
+    await Promise.all(uniqueBidders.map(bidderId => 
+      prisma.notification.create({
+        data: {
+          userId: bidderId,
+          type: 'LOT_DELETED',
+          message: `Лот "${lotTitle}" был удален продавцом`
+        }
+      })
+    ));
 
     res.status(204).send();
   } catch (error) {
