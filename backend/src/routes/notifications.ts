@@ -21,10 +21,10 @@ router.get('/', authenticateToken, async (req: Request & { user?: { userId: stri
       }
     });
 
-    res.json(notifications);
+    return res.json(notifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);
-    res.status(500).json({ error: 'Failed to fetch notifications' });
+    return res.status(500).json({ error: 'Не удалось получить уведомления' });
   }
 });
 
@@ -36,11 +36,11 @@ router.patch('/:id/read', authenticateToken, async (req: Request & { user?: { us
     });
 
     if (!notification) {
-      return res.status(404).json({ error: 'Notification not found' });
+      return res.status(404).json({ error: 'Уведомление не найдено' });
     }
 
     if (notification.userId !== req.user!.userId) {
-      return res.status(403).json({ error: 'Not authorized' });
+      return res.status(403).json({ error: 'Нет прав для изменения этого уведомления' });
     }
 
     const updatedNotification = await prisma.notification.update({
@@ -48,10 +48,10 @@ router.patch('/:id/read', authenticateToken, async (req: Request & { user?: { us
       data: { read: true }
     });
 
-    res.json(updatedNotification);
+    return res.json(updatedNotification);
   } catch (error) {
-    console.error('Error updating notification:', error);
-    res.status(500).json({ error: 'Failed to update notification' });
+    console.error('Error marking notification as read:', error);
+    return res.status(500).json({ error: 'Не удалось обновить уведомление' });
   }
 });
 
@@ -70,6 +70,32 @@ router.patch('/read-all', authenticateToken, async (req: Request & { user?: { us
   } catch (error) {
     console.error('Error updating notifications:', error);
     res.status(500).json({ error: 'Failed to update notifications' });
+  }
+});
+
+// Delete notification
+router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+  try {
+    const notification = await prisma.notification.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Уведомление не найдено' });
+    }
+
+    if (notification.userId !== req.user!.userId) {
+      return res.status(403).json({ error: 'Нет прав для удаления этого уведомления' });
+    }
+
+    await prisma.notification.delete({
+      where: { id: req.params.id }
+    });
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    return res.status(500).json({ error: 'Не удалось удалить уведомление' });
   }
 });
 

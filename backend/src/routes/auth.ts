@@ -6,12 +6,6 @@ import { authenticateToken } from '../middleware/auth';
 import { body, validationResult } from 'express-validator';
 import bcrypt from 'bcrypt';
 
-interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-  };
-}
-
 const router = Router();
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -21,7 +15,7 @@ router.post(
   [
     body('email').isEmail(),
     body('password').isLength({ min: 6 }),
-    body('name').optional()
+    body('name').notEmpty()
   ],
   async (req: Request, res: Response) => {
     try {
@@ -32,44 +26,47 @@ router.post(
 
       const { email, password, name } = req.body;
 
+      // Check if user already exists
       const existingUser = await prisma.user.findUnique({
         where: { email }
       });
 
       if (existingUser) {
-        return res.status(400).json({ error: 'Email уже зарегистрирован' });
+        return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
       }
 
+      // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
+      // Create user
       const user = await prisma.user.create({
         data: {
           email,
           password: hashedPassword,
           name,
-          role: 'USER' // По умолчанию все новые пользователи получают роль USER
+          role: 'USER'
         }
       });
 
+      // Generate token
       const token = jwt.sign(
-        { userId: user.id },
+        { userId: user.id, role: user.role },
         process.env.JWT_SECRET!,
         { expiresIn: '24h' }
       );
 
-      res.status(201).json({
+      return res.status(201).json({
         token,
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
-          profileImage: user.profileImage,
           role: user.role
         }
       });
     } catch (error) {
-      console.error('Registration error:', error);
-      res.status(500).json({ error: 'Ошибка при регистрации' });
+      console.error('Error registering user:', error);
+      return res.status(500).json({ error: 'Ошибка при регистрации пользователя' });
     }
   }
 );
@@ -90,6 +87,7 @@ router.post(
 
       const { email, password } = req.body;
 
+      // Find user
       const user = await prisma.user.findUnique({
         where: { email }
       });
@@ -98,31 +96,31 @@ router.post(
         return res.status(401).json({ error: 'Неверный email или пароль' });
       }
 
-      const validPassword = await bcrypt.compare(password, user.password);
-
+      // Check password
+      const validPassword = await bcrypt.compare(password, user.password!);
       if (!validPassword) {
         return res.status(401).json({ error: 'Неверный email или пароль' });
       }
 
+      // Generate token
       const token = jwt.sign(
-        { userId: user.id },
+        { userId: user.id, role: user.role },
         process.env.JWT_SECRET!,
         { expiresIn: '24h' }
       );
 
-      res.json({
+      return res.json({
         token,
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
-          profileImage: user.profileImage,
           role: user.role
         }
       });
     } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ error: 'Ошибка при входе' });
+      console.error('Error logging in:', error);
+      return res.status(500).json({ error: 'Ошибка при входе в систему' });
     }
   }
 );
@@ -138,16 +136,15 @@ router.get('/me', authenticateToken, async (req: Request & { user?: { userId: st
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
-    res.json({
+    return res.json({
       id: user.id,
       email: user.email,
       name: user.name,
-      profileImage: user.profileImage,
       role: user.role
     });
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({ error: 'Ошибка при получении данных пользователя' });
+    return res.status(500).json({ error: 'Ошибка при получении данных пользователя' });
   }
 });
 

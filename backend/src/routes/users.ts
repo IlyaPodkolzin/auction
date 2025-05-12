@@ -57,10 +57,10 @@ router.get('/:id', authenticateToken, async (req: Request & { user?: { userId: s
       delete user.email;
     }
 
-    res.json(user);
+    return res.json(user);
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({ error: 'Не удалось получить информацию о пользователе' });
+    return res.status(500).json({ error: 'Не удалось получить информацию о пользователе' });
   }
 });
 
@@ -79,10 +79,10 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
       })
     ]);
 
-    res.json({ totalLots, soldLots });
+    return res.json({ totalLots, soldLots });
   } catch (error) {
     console.error('Error fetching user stats:', error);
-    res.status(500).json({ error: 'Не удалось получить статистику пользователя' });
+    return res.status(500).json({ error: 'Не удалось получить статистику пользователя' });
   }
 });
 
@@ -122,12 +122,12 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
 
       // Update current price for active lots where user had the highest bid
       for (const lot of activeLotsWithBids) {
-        const userBids = lot.bids.filter(bid => bid.userId === userId);
-        const highestUserBid = Math.max(...userBids.map(bid => bid.amount));
+        const userBids = lot.bids.filter((bid: Bid) => bid.userId === userId);
+        const highestUserBid = Math.max(...userBids.map((bid: Bid) => bid.amount));
         
         if (lot.currentPrice === highestUserBid) {
           // Find the next highest bid
-          const nextHighestBid = lot.bids.find(bid => bid.userId !== userId);
+          const nextHighestBid = lot.bids.find((bid: Bid) => bid.userId !== userId);
           if (nextHighestBid) {
             await tx.lot.update({
               where: { id: lot.id },
@@ -154,7 +154,7 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
         where: {
           OR: [
             { userId },
-            { lotId: { in: userLots.map(lot => lot.id) } }
+            { lotId: { in: userLots.map((lot: Lot) => lot.id) } }
           ]
         }
       });
@@ -164,7 +164,7 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
         where: {
           OR: [
             { userId },
-            { lotId: { in: userLots.map(lot => lot.id) } }
+            { lotId: { in: userLots.map((lot: Lot) => lot.id) } }
           ]
         }
       });
@@ -180,10 +180,10 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
       });
     });
 
-    res.status(204).send();
+    return res.status(204).send();
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Не удалось удалить аккаунт пользователя' });
+    return res.status(500).json({ error: 'Не удалось удалить аккаунт пользователя' });
   }
 });
 

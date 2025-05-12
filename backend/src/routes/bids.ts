@@ -4,23 +4,9 @@ import { prisma } from '../index';
 import { authenticateToken } from '../middleware/auth';
 import { Prisma } from '@prisma/client';
 
-interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  role: string;
-}
-
-interface UserWithRole {
-  id: string;
-  email: string;
-  name: string | null;
-  role: string;
-}
-
 const router = Router();
 
-// Get bids for a lot
+// Get all bids for a lot
 router.get('/lot/:lotId', async (req: Request, res: Response) => {
   try {
     const bids = await prisma.bid.findMany({
@@ -36,9 +22,11 @@ router.get('/lot/:lotId', async (req: Request, res: Response) => {
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(bids);
+
+    return res.json(bids);
   } catch (error) {
-    res.status(500).json({ error: 'Не удалось получить ставки' });
+    console.error('Error fetching bids:', error);
+    return res.status(500).json({ error: 'Не удалось получить ставки' });
   }
 });
 
@@ -68,14 +56,11 @@ router.get('/user', authenticateToken, async (req: Request & { user?: { userId: 
   }
 });
 
-// Place a bid
+// Create a new bid
 router.post(
   '/',
   authenticateToken,
-  [
-    body('lotId').notEmpty(),
-    body('amount').isFloat({ min: 0 })
-  ],
+  [body('lotId').notEmpty(), body('amount').isFloat({ min: 0 })],
   async (req: Request & { user?: { userId: string } }, res: Response) => {
     try {
       const errors = validationResult(req);
@@ -85,6 +70,7 @@ router.post(
 
       const { lotId, amount } = req.body;
 
+      // Get lot
       const lot = await prisma.lot.findUnique({
         where: { id: lotId }
       });
@@ -93,30 +79,79 @@ router.post(
         return res.status(404).json({ error: 'Лот не найден' });
       }
 
+      // Check if lot is active
       if (lot.status !== 'ACTIVE') {
-        return res.status(400).json({ error: 'Лот неактивен' });
+        return res.status(400).json({ error: 'Лот не активен' });
       }
 
+      // Check if bid amount is higher than current price
       if (amount <= lot.currentPrice) {
         return res.status(400).json({ error: 'Ставка должна быть выше текущей цены' });
       }
 
+      // Create bid
       const bid = await prisma.bid.create({
         data: {
-          amount: parseFloat(amount),
-          lotId,
-          userId: req.user!.userId
+          amount,
+          userId: req.user!.userId,
+          lotId
         }
       });
 
+      // Update lot current price
       await prisma.lot.update({
         where: { id: lotId },
-        data: { currentPrice: parseFloat(amount) }
+        data: { currentPrice: amount }
       });
 
-      res.status(201).json(bid);
+      // Get bidder and seller information
+      const [bidder, seller] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: req.user!.userId },
+          select: { name: true, email: true }
+        }),
+        prisma.user.findUnique({
+          where: { id: lot.sellerId },
+          select: { name: true, email: true }
+        })
+      ]);
+
+      if (bidder && seller) {
+        // Send notification to seller
+        await prisma.notification.create({
+          data: {
+            userId: lot.sellerId,
+            type: 'NEW_BID',
+            message: `Новая ставка на ваш лот "${lot.title}" от ${bidder.name} (${bidder.email}) - ${amount}₽`,
+            lotId: lot.id
+          }
+        });
+
+        // Send notification to previous highest bidder if exists
+        const previousHighestBid = await prisma.bid.findFirst({
+          where: {
+            lotId,
+            userId: { not: req.user!.userId }
+          },
+          orderBy: { amount: 'desc' }
+        });
+
+        if (previousHighestBid) {
+          await prisma.notification.create({
+            data: {
+              userId: previousHighestBid.userId,
+              type: 'BID_OUTBID',
+              message: `Ваша ставка на лот "${lot.title}" была перебита. Текущая цена: ${amount}₽`,
+              lotId: lot.id
+            }
+          });
+        }
+      }
+
+      return res.status(201).json(bid);
     } catch (error) {
-      res.status(500).json({ error: 'Не удалось разместить ставку' });
+      console.error('Error creating bid:', error);
+      return res.status(500).json({ error: 'Не удалось создать ставку' });
     }
   }
 );
@@ -127,72 +162,53 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
     const bidId = req.params.id;
     const requestingUser = await prisma.user.findUnique({
       where: { id: req.user!.userId }
-    }) as UserWithRole | null;
+    });
 
-    if (!requestingUser) {
-      return res.status(404).json({ error: 'Пользователь не найден' });
-    }
-
-    // Get the bid and check if it belongs to the user
     const bid = await prisma.bid.findUnique({
       where: { id: bidId },
-      include: {
-        lot: true
-      }
+      include: { lot: true }
     });
 
     if (!bid) {
       return res.status(404).json({ error: 'Ставка не найдена' });
     }
 
-    // Проверяем права доступа (админ или владелец ставки)
-    if (requestingUser.role !== 'ADMIN' && bid.userId !== req.user!.userId) {
-      return res.status(403).json({ error: 'Нельзя удалить чужую ставку' });
+    // Проверяем права доступа
+    if (requestingUser?.role !== 'ADMIN' && bid.userId !== req.user!.userId) {
+      return res.status(403).json({ error: 'Нет прав для удаления этой ставки' });
     }
 
-    // Check if the lot is still active
+    // Проверяем статус лота
     if (bid.lot.status !== 'ACTIVE') {
-      return res.status(400).json({ error: 'Нельзя удалить ставку для завершенного лота' });
+      return res.status(400).json({ error: 'Нельзя удалить ставку для неактивного лота' });
     }
 
-    // Delete the bid in a transaction
+    // Удаляем ставку и обновляем текущую цену лота в транзакции
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Delete the bid
+      // Удаляем ставку
       await tx.bid.delete({
         where: { id: bidId }
       });
 
-      // Update lot's current price if needed
-      const lot = await tx.lot.findUnique({
-        where: { id: bid.lotId },
-        include: {
-          bids: {
-            orderBy: {
-              amount: 'desc'
-            }
-          }
-        }
+      // Находим следующую максимальную ставку
+      const nextHighestBid = await tx.bid.findFirst({
+        where: { lotId: bid.lotId },
+        orderBy: { amount: 'desc' }
       });
 
-      if (lot && lot.bids.length > 0) {
-        // If there are other bids, set current price to the highest remaining bid
-        await tx.lot.update({
-          where: { id: lot.id },
-          data: { currentPrice: lot.bids[0].amount }
-        });
-      } else if (lot) {
-        // If no bids left, set current price to start price
-        await tx.lot.update({
-          where: { id: lot.id },
-          data: { currentPrice: lot.startPrice }
-        });
-      }
+      // Обновляем текущую цену лота
+      await tx.lot.update({
+        where: { id: bid.lotId },
+        data: {
+          currentPrice: nextHighestBid ? nextHighestBid.amount : bid.lot.startPrice
+        }
+      });
     });
 
-    res.status(204).send();
+    return res.status(204).send();
   } catch (error) {
-    console.error('Ошибка при удалении ставки:', error);
-    res.status(500).json({ error: 'Не удалось удалить ставку' });
+    console.error('Error deleting bid:', error);
+    return res.status(500).json({ error: 'Не удалось удалить ставку' });
   }
 });
 

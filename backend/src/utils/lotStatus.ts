@@ -5,6 +5,14 @@ interface LotStatus {
   endTime: Date;
 }
 
+interface Bid {
+  id: string;
+  amount: number;
+  userId: string;
+  lotId: string;
+  createdAt: Date;
+}
+
 export const updateLotStatus = async (lotId: string) => {
   try {
     const lot = await prisma.lot.findUnique({
@@ -37,7 +45,7 @@ export const updateLotStatus = async (lotId: string) => {
 
       // If lot is sold, send notifications
       if (newStatus === 'SOLD' && lot.bids.length > 0) {
-        const highestBid = lot.bids.reduce((prev, current) => 
+        const highestBid = lot.bids.reduce((prev: Bid, current: Bid) => 
           prev.amount > current.amount ? prev : current
         );
 

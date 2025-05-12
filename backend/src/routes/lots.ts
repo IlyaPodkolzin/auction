@@ -37,10 +37,10 @@ type CategoryType = typeof Category[keyof typeof Category];
 
 // Configure multer for image upload
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
     cb(null, 'uploads/');
   },
-  filename: (req, file, cb) => {
+  filename: (_req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     cb(null, Date.now() + path.extname(file.originalname));
   }
 });
@@ -122,7 +122,7 @@ router.get('/', async (req: Request, res: Response) => {
     });
 
     // Update status for each lot
-    await Promise.all(lots.map(lot => updateLotStatus(lot.id)));
+    await Promise.all(lots.map((lot: Lot) => updateLotStatus(lot.id)));
 
     // Fetch updated lots
     const updatedLots = await prisma.lot.findMany({
@@ -145,10 +145,10 @@ router.get('/', async (req: Request, res: Response) => {
       images: lot.images.length > 0 ? lot.images : ['default-lot.jpg']
     }));
 
-    res.json(lotsWithDefaultImage);
+    return res.json(lotsWithDefaultImage);
   } catch (error) {
     console.error('Error fetching lots:', error);
-    res.status(500).json({ error: 'Failed to fetch lots' });
+    return res.status(500).json({ error: 'Failed to fetch lots' });
   }
 });
 
@@ -168,9 +168,9 @@ router.get('/my-lots', authenticateToken, async (req: Request & { user?: { userI
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(lots);
+    return res.json(lots);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch user lots' });
+    return res.status(500).json({ error: 'Failed to fetch user lots' });
   }
 });
 
@@ -235,9 +235,9 @@ router.get('/:id', async (req: Request, res: Response) => {
       }
     });
 
-    res.json(updatedLot);
+    return res.json(updatedLot);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch lot' });
+    return res.status(500).json({ error: 'Failed to fetch lot' });
   }
 });
 
@@ -278,10 +278,10 @@ router.post(
         }
       });
 
-      res.status(201).json(lot);
+      return res.status(201).json(lot);
     } catch (error) {
       console.error('Error creating lot:', error);
-      res.status(500).json({ error: 'Failed to create lot' });
+      return res.status(500).json({ error: 'Failed to create lot' });
     }
   }
 );
@@ -307,9 +307,9 @@ router.patch('/:id/status', authenticateToken, async (req: Request & { user?: { 
       data: { status }
     });
 
-    res.json(updatedLot);
+    return res.json(updatedLot);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update lot status' });
+    return res.status(500).json({ error: 'Failed to update lot status' });
   }
 });
 
@@ -341,7 +341,7 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
       distinct: ['userId']
     });
 
-    const uniqueBidderIds = bidders.map(bid => bid.userId);
+    const uniqueBidderIds = bidders.map((bid: Bid) => bid.userId);
 
     // Save lot title for notifications
     const lotTitle = lot.title;
@@ -365,7 +365,7 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
 
     // Create notifications for all bidders
     await Promise.all(
-      uniqueBidderIds.map(bidderId =>
+      uniqueBidderIds.map((bidderId: string) =>
         prisma.notification.create({
           data: {
             userId: bidderId,
@@ -376,10 +376,10 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
       )
     );
 
-    res.status(204).send();
+    return res.status(204).send();
   } catch (error) {
     console.error('Error deleting lot:', error);
-    res.status(500).json({ error: 'Не удалось удалить лот' });
+    return res.status(500).json({ error: 'Не удалось удалить лот' });
   }
 });
 
