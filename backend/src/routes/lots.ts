@@ -5,6 +5,7 @@ import { prisma } from '../index';
 import { authenticateToken } from '../middleware/auth';
 import { updateLotStatus } from '../utils/lotStatus';
 import path from 'path';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -45,6 +46,23 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+
+interface Lot {
+  id: string;
+  title: string;
+  description: string;
+  startPrice: number;
+  currentPrice: number;
+  status: string;
+  sellerId: string;
+}
+
+interface Bid {
+  id: string;
+  amount: number;
+  userId: string;
+  lotId: string;
+}
 
 // Get all lots with search and filters
 router.get('/', async (req: Request, res: Response) => {
@@ -329,18 +347,18 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
     const lotTitle = lot.title;
 
     // Delete the lot and all related data in a transaction
-    await prisma.$transaction(async (prisma) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Delete all bids and notifications related to the lot
-      await prisma.bid.deleteMany({
+      await tx.bid.deleteMany({
         where: { lotId }
       });
 
-      await prisma.notification.deleteMany({
+      await tx.notification.deleteMany({
         where: { lotId }
       });
 
       // Delete the lot
-      await prisma.lot.delete({
+      await tx.lot.delete({
         where: { id: lotId }
       });
     });

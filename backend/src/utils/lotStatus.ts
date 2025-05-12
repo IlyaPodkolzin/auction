@@ -1,5 +1,10 @@
 import { prisma } from '../index';
 
+interface LotStatus {
+  status: string;
+  endTime: Date;
+}
+
 export const updateLotStatus = async (lotId: string) => {
   try {
     const lot = await prisma.lot.findUnique({

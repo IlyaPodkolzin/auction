@@ -156,14 +156,14 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
     }
 
     // Delete the bid in a transaction
-    await prisma.$transaction(async (prisma) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Delete the bid
-      await prisma.bid.delete({
+      await tx.bid.delete({
         where: { id: bidId }
       });
 
       // Update lot's current price if needed
-      const lot = await prisma.lot.findUnique({
+      const lot = await tx.lot.findUnique({
         where: { id: bid.lotId },
         include: {
           bids: {
@@ -176,13 +176,13 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
 
       if (lot && lot.bids.length > 0) {
         // If there are other bids, set current price to the highest remaining bid
-        await prisma.lot.update({
+        await tx.lot.update({
           where: { id: lot.id },
           data: { currentPrice: lot.bids[0].amount }
         });
       } else if (lot) {
         // If no bids left, set current price to start price
-        await prisma.lot.update({
+        await tx.lot.update({
           where: { id: lot.id },
           data: { currentPrice: lot.startPrice }
         });

@@ -1,6 +1,32 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../index';
 import { authenticateToken, isAdmin } from '../middleware/auth';
+import { Prisma } from '@prisma/client';
+
+interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+}
+
+interface Bid {
+  id: string;
+  amount: number;
+  userId: string;
+  lotId: string;
+  lot: {
+    id: string;
+    currentPrice: number;
+    startPrice: number;
+  };
+}
+
+interface Lot {
+  id: string;
+  currentPrice: number;
+  startPrice: number;
+}
 
 const router = Router();
 
@@ -74,9 +100,9 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
     }
 
     // Delete user account and all related data in a transaction
-    await prisma.$transaction(async (prisma) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Get all active lots where user has bids
-      const activeLotsWithBids = await prisma.lot.findMany({
+      const activeLotsWithBids = await tx.lot.findMany({
         where: {
           status: 'ACTIVE',
           bids: {
@@ -103,13 +129,13 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
           // Find the next highest bid
           const nextHighestBid = lot.bids.find(bid => bid.userId !== userId);
           if (nextHighestBid) {
-            await prisma.lot.update({
+            await tx.lot.update({
               where: { id: lot.id },
               data: { currentPrice: nextHighestBid.amount }
             });
           } else {
             // If no other bids, set price to start price
-            await prisma.lot.update({
+            await tx.lot.update({
               where: { id: lot.id },
               data: { currentPrice: lot.startPrice }
             });
@@ -118,13 +144,13 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
       }
 
       // Get all lots created by the user
-      const userLots = await prisma.lot.findMany({
+      const userLots = await tx.lot.findMany({
         where: { sellerId: userId },
         select: { id: true }
       });
 
       // Delete all notifications related to user's lots
-      await prisma.notification.deleteMany({
+      await tx.notification.deleteMany({
         where: {
           OR: [
             { userId },
@@ -134,7 +160,7 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
       });
 
       // Delete all bids related to user's lots
-      await prisma.bid.deleteMany({
+      await tx.bid.deleteMany({
         where: {
           OR: [
             { userId },
@@ -144,12 +170,12 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
       });
 
       // Delete all user's lots
-      await prisma.lot.deleteMany({
+      await tx.lot.deleteMany({
         where: { sellerId: userId }
       });
 
       // Finally delete the user
-      await prisma.user.delete({
+      await tx.user.delete({
         where: { id: userId }
       });
     });
