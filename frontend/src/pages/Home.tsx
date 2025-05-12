@@ -97,8 +97,8 @@ const Home: React.FC = () => {
       setLots(response.data);
       setError(null);
     } catch (err) {
-      setError('Failed to fetch lots');
-      console.error('Error fetching lots:', err);
+      setError('Не удалось получить лоты');
+      console.error('Ошибка при получении лотов:', err);
     } finally {
       setLoading(false);
     }
@@ -135,7 +135,7 @@ const Home: React.FC = () => {
           <Grid item xs={12} md={4}>
             <TextField
               fullWidth
-              label="Search lots"
+              label="Поиск лотов"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -203,7 +203,7 @@ const Home: React.FC = () => {
           <Grid item xs={12} md={2}>
             <TextField
               fullWidth
-              label="Min Price"
+              label="Минимальная цена"
               type="number"
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
@@ -212,7 +212,7 @@ const Home: React.FC = () => {
           <Grid item xs={12} md={2}>
             <TextField
               fullWidth
-              label="Max Price"
+              label="Максимальная цена"
               type="number"
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}

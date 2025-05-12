@@ -10,13 +10,15 @@ datasource db {
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
+  password      String
   name          String?
   googleId      String?   @unique
+  profileImage  String?
+  role          String    @default("USER") // "USER" or "ADMIN"
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   lots          Lot[]     @relation("Seller")
   bids          Bid[]
-  profileImage  String?
   notifications Notification[]
 }
 

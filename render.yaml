@@ -1,0 +1,28 @@
+services:
+  # Backend service
+  - type: web
+    name: auction-backend
+    env: node
+    buildCommand: cd backend && npm install && npx prisma generate && npm run build
+    startCommand: cd backend && npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PORT
+        value: 3001
+      - key: CORS_ORIGIN
+        value: https://auction-frontend.onrender.com
+
+  # Frontend service
+  - type: web
+    name: auction-frontend
+    env: node
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://auction-backend.onrender.com
+      - key: REACT_APP_WS_URL
+        value: wss://auction-backend.onrender.com 

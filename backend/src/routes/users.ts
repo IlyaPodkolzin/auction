@@ -1,30 +1,40 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../index';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, isAdmin } from '../middleware/auth';
 
 const router = Router();
 
 // Get user profile
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
   try {
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: req.user!.userId }
+    });
+
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
       select: {
         id: true,
         name: true,
         email: true,
-        profileImage: true
+        profileImage: true,
+        role: true
       }
     });
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    // Если это не админ и не свой профиль, скрываем email
+    if (requestingUser?.role !== 'ADMIN' && req.user!.userId !== user.id) {
+      delete user.email;
     }
 
     res.json(user);
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({ error: 'Failed to fetch user' });
+    res.status(500).json({ error: 'Не удалось получить информацию о пользователе' });
   }
 });
 
@@ -46,18 +56,21 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
     res.json({ totalLots, soldLots });
   } catch (error) {
     console.error('Error fetching user stats:', error);
-    res.status(500).json({ error: 'Failed to fetch user statistics' });
+    res.status(500).json({ error: 'Не удалось получить статистику пользователя' });
   }
 });
 
-// Delete user account
+// Delete user account (admin or self)
 router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
   try {
     const userId = req.params.id;
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: req.user!.userId }
+    });
 
-    // Check if user is trying to delete their own account
-    if (userId !== req.user!.userId) {
-      return res.status(403).json({ error: 'Not authorized to delete this account' });
+    // Проверяем права доступа
+    if (requestingUser?.role !== 'ADMIN' && userId !== req.user!.userId) {
+      return res.status(403).json({ error: 'Нет прав для удаления этого аккаунта' });
     }
 
     // Delete user account and all related data in a transaction
@@ -144,7 +157,7 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Failed to delete user account' });
+    res.status(500).json({ error: 'Не удалось удалить аккаунт пользователя' });
   }
 });
 

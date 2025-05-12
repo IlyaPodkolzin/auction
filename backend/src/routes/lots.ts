@@ -295,65 +295,73 @@ router.patch('/:id/status', authenticateToken, async (req: Request & { user?: { 
   }
 });
 
-// Delete lot
+// Delete lot (admin or owner)
 router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
   try {
+    const lotId = req.params.id;
+    const requestingUser = await prisma.user.findUnique({
+      where: { id: req.user!.userId }
+    });
+
     const lot = await prisma.lot.findUnique({
-      where: { id: req.params.id },
-      include: {
-        bids: {
-          select: {
-            userId: true
-          }
-        }
-      }
+      where: { id: lotId }
     });
 
     if (!lot) {
-      return res.status(404).json({ error: 'Lot not found' });
+      return res.status(404).json({ error: 'Лот не найден' });
     }
 
-    if (lot.sellerId !== req.user!.userId) {
-      return res.status(403).json({ error: 'Not authorized' });
+    // Проверяем права доступа
+    if (requestingUser?.role !== 'ADMIN' && lot.sellerId !== req.user!.userId) {
+      return res.status(403).json({ error: 'Нет прав для удаления этого лота' });
     }
 
     // Get unique bidders before deleting the lot
-    const uniqueBidders = [...new Set(lot.bids.map(bid => bid.userId))];
-    const lotTitle = lot.title; // Save title for notifications
+    const bidders = await prisma.bid.findMany({
+      where: { lotId },
+      select: { userId: true },
+      distinct: ['userId']
+    });
 
-    // Delete all related records in a transaction
+    const uniqueBidderIds = bidders.map(bid => bid.userId);
+
+    // Save lot title for notifications
+    const lotTitle = lot.title;
+
+    // Delete the lot and all related data in a transaction
     await prisma.$transaction(async (prisma) => {
-      // Delete all bids for this lot
+      // Delete all bids and notifications related to the lot
       await prisma.bid.deleteMany({
-        where: { lotId: lot.id }
+        where: { lotId }
       });
 
-      // Delete all notifications related to this lot
       await prisma.notification.deleteMany({
-        where: { lotId: lot.id }
+        where: { lotId }
       });
 
-      // Finally delete the lot
+      // Delete the lot
       await prisma.lot.delete({
-        where: { id: lot.id }
+        where: { id: lotId }
       });
     });
 
-    // Create notifications for all bidders after the lot is deleted
-    await Promise.all(uniqueBidders.map(bidderId => 
-      prisma.notification.create({
-        data: {
-          userId: bidderId,
-          type: 'LOT_DELETED',
-          message: `Лот "${lotTitle}" был удален продавцом`
-        }
-      })
-    ));
+    // Create notifications for all bidders
+    await Promise.all(
+      uniqueBidderIds.map(bidderId =>
+        prisma.notification.create({
+          data: {
+            userId: bidderId,
+            type: 'LOT_DELETED',
+            message: `Лот "${lotTitle}" был удален`
+          }
+        })
+      )
+    );
 
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting lot:', error);
-    res.status(500).json({ error: 'Failed to delete lot' });
+    res.status(500).json({ error: 'Не удалось удалить лот' });
   }
 });
 

@@ -12,6 +12,7 @@ import MyLots from './pages/MyLots';
 import MyBids from './pages/MyBids';
 import ProtectedRoute from './components/ProtectedRoute';
 import Profile from './pages/Profile';
+import Register from './pages/Register';
 
 const theme = createTheme({
   palette: {
@@ -32,7 +33,9 @@ function App() {
           <Router>
             <Navbar />
             <Routes>
+              <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
               <Route
                 path="/my-lots"
                 element={
@@ -59,7 +62,6 @@ function App() {
                 }
               />
               <Route path="/profile/:id" element={<Profile />} />
-              <Route path="/" element={<Home />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Router>

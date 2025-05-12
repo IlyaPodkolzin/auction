@@ -1,81 +1,116 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { GoogleLogin } from '@react-oauth/google';
+import React, { useState } from 'react';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Container,
-  Box,
-  Typography,
   Paper,
-  Alert
+  Typography,
+  TextField,
+  Button,
+  Box,
+  Alert,
+  CircularProgress,
+  Link
 } from '@mui/material';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
-import axios from '../utils/axios';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, error } = useAuth();
+  const { login, loginWithGoogle, error } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
     try {
-      // First, send the Google credential to our backend
-      const response = await axios.post('/api/auth/google', {
-        credential: credentialResponse.credential
-      });
-      
-      // Then use the JWT token from our backend
-      await login(response.data.token);
+      await login(email, password);
       navigate('/');
     } catch (err) {
       console.error('Login failed:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleGoogleError = () => {
-    console.error('Google login failed');
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setLoading(true);
+    try {
+      await loginWithGoogle(credentialResponse.credential);
+      navigate('/');
+    } catch (err) {
+      console.error('Google login failed:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            padding: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
-          <Typography component="h1" variant="h4" gutterBottom>
-            Добро пожаловать в Auction App
-          </Typography>
-          <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
-            Войдите в систему, чтобы начать делать ставки на лоты или создать свои аукционы
-          </Typography>
+    <Container maxWidth="sm" sx={{ mt: 4 }}>
+      <Paper sx={{ p: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center">
+          Вход
+        </Typography>
 
-          {error && (
-            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-          <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <form onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            margin="normal"
+            required
+          />
+          <TextField
+            fullWidth
+            label="Пароль"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            margin="normal"
+            required
+          />
+          <Button
+            fullWidth
+            type="submit"
+            variant="contained"
+            color="primary"
+            size="large"
+            sx={{ mt: 2 }}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Войти'}
+          </Button>
+        </form>
+
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Или войдите через
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-              useOneTap
+              onError={() => {
+                console.error('Google Login Failed');
+              }}
             />
           </Box>
-        </Paper>
-      </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Нет аккаунта?{' '}
+            <Link component={RouterLink} to="/register">
+              Зарегистрироваться
+            </Link>
+          </Typography>
+        </Box>
+      </Paper>
     </Container>
   );
 };

@@ -121,8 +121,8 @@ const CreateLot: React.FC = () => {
 
       navigate(`/lots/${response.data.id}`);
     } catch (error) {
-      console.error('Error creating lot:', error);
-      setError('Failed to create lot. Please try again.');
+      console.error('Ошибка при создании лота:', error);
+      setError('Не удалось создать лот. Пожалуйста, попробуйте снова.');
     } finally {
       setLoading(false);
     }
@@ -157,7 +157,7 @@ const CreateLot: React.FC = () => {
               <TextField
                 required
                 fullWidth
-                label="Title"
+                label="Название лота"
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
@@ -170,7 +170,7 @@ const CreateLot: React.FC = () => {
                 fullWidth
                 multiline
                 rows={4}
-                label="Description"
+                label="Описание лота"
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
@@ -182,7 +182,7 @@ const CreateLot: React.FC = () => {
                 required
                 fullWidth
                 type="number"
-                label="Starting Price"
+                label="Начальная цена"
                 name="startPrice"
                 value={formData.startPrice}
                 onChange={handleInputChange}
@@ -192,11 +192,11 @@ const CreateLot: React.FC = () => {
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required>
-                <InputLabel>Category</InputLabel>
+                <InputLabel>Категория</InputLabel>
                 <Select
                   name="category"
                   value={formData.category}
-                  label="Category"
+                  label="Категория"
                   onChange={handleSelectChange}
                 >
                   {Object.entries(Category).map(([key, value]) => (
@@ -213,7 +213,7 @@ const CreateLot: React.FC = () => {
                 required
                 fullWidth
                 type="datetime-local"
-                label="Start Time"
+                label="Время начала"
                 name="startTime"
                 value={formData.startTime}
                 onChange={handleInputChange}
@@ -226,7 +226,7 @@ const CreateLot: React.FC = () => {
                 required
                 fullWidth
                 type="datetime-local"
-                label="End Time"
+                label="Время окончания"
                 name="endTime"
                 value={formData.endTime}
                 onChange={handleInputChange}
@@ -240,7 +240,7 @@ const CreateLot: React.FC = () => {
                 component="label"
                 fullWidth
               >
-                Upload Images
+                Загрузить изображения
                 <input
                   type="file"
                   hidden
@@ -251,7 +251,7 @@ const CreateLot: React.FC = () => {
               </Button>
               {formData.images.length > 0 && (
                 <Typography variant="body2" sx={{ mt: 1 }}>
-                  {formData.images.length} image(s) selected
+                  {formData.images.length} изображение(й) выбрано
                 </Typography>
               )}
             </Grid>
@@ -264,7 +264,7 @@ const CreateLot: React.FC = () => {
                 fullWidth
                 disabled={loading}
               >
-                {loading ? 'Creating...' : 'Create Lot'}
+                {loading ? 'Создание...' : 'Создать лот'}
               </Button>
             </Grid>
           </Grid>

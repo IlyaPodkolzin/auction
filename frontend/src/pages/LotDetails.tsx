@@ -21,7 +21,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  IconButton
 } from '@mui/material';
 import { format } from 'date-fns';
 import { io, Socket } from 'socket.io-client';
@@ -69,6 +70,9 @@ const LotDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteBidDialogOpen, setDeleteBidDialogOpen] = useState(false);
+  const [selectedBidId, setSelectedBidId] = useState<string | null>(null);
+  const { user: currentUser } = useAuth();
 
   useEffect(() => {
     const fetchLot = async () => {
@@ -148,10 +152,51 @@ const LotDetails: React.FC = () => {
       setDeleteDialogOpen(false);
       navigate('/my-lots');
     } catch (err: any) {
-      console.error('Error deleting lot:', err);
-      console.error('Error response:', err.response);
+      console.error('Ошибка при удалении лота:', err);
+      console.error('Ответ сервера:', err.response);
       setError(err.response?.data?.error || 'Не удалось удалить лот');
       setDeleteDialogOpen(false);
+    }
+  };
+
+  const handleDeleteBidClick = (bidId: string) => {
+    setSelectedBidId(bidId);
+    setDeleteBidDialogOpen(true);
+  };
+
+  const handleDeleteBidConfirm = async () => {
+    if (!selectedBidId) return;
+
+    try {
+      await axios.delete(`/api/bids/${selectedBidId}`);
+      setDeleteBidDialogOpen(false);
+      setSelectedBidId(null);
+      
+      // Обновляем данные лота
+      const response = await axios.get(`/api/lots/${id}`);
+      setLot(response.data);
+      setSuccess('Ставка успешно удалена');
+    } catch (err: any) {
+      console.error('Ошибка при удалении ставки:', err);
+      setError(err.response?.data?.error || 'Не удалось удалить ставку');
+      setDeleteBidDialogOpen(false);
+      setSelectedBidId(null);
+    }
+  };
+
+  const handleDeleteBid = async (bidId: string) => {
+    if (!window.confirm('Вы уверены, что хотите удалить эту ставку?')) {
+      return;
+    }
+
+    try {
+      await axios.delete(`/api/bids/${bidId}`);
+      // Обновляем данные лота
+      const response = await axios.get(`/api/lots/${id}`);
+      setLot(response.data);
+    } catch (error) {
+      console.error('Ошибка при удалении ставки:', error);
+      // Показываем сообщение об ошибке пользователю
     }
   };
 
@@ -197,7 +242,7 @@ const LotDetails: React.FC = () => {
                 <ImageListItem key={index}>
                   <img
                     src={`${process.env.REACT_APP_API_URL}/uploads/${image}`}
-                    alt={`${lot.title} - Image ${index + 1}`}
+                    alt={`${lot.title} - Изображение ${index + 1}`}
                     loading="lazy"
                     style={{ objectFit: 'contain' }}
                   />
@@ -234,7 +279,7 @@ const LotDetails: React.FC = () => {
               <Box sx={{ mt: 2 }}>
                 <TextField
                   fullWidth
-                  label="Your Bid"
+                  label="Ваша ставка"
                   type="number"
                   value={bidAmount}
                   onChange={(e) => setBidAmount(e.target.value)}
@@ -288,39 +333,43 @@ const LotDetails: React.FC = () => {
                 </Typography>
               ) : (
                 lot.bids.map((bid) => (
-                  <React.Fragment key={bid.id}>
-                    <ListItem>
-                      <ListItemAvatar>
-                        <Avatar
-                          src={bid.user.profileImage ? `${process.env.REACT_APP_API_URL}/uploads/${bid.user.profileImage}` : undefined}
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => navigate(`/profile/${bid.user.id}`)}
+                  <ListItem
+                    key={bid.id}
+                    secondaryAction={
+                      currentUser?.role === 'ADMIN' && (
+                        <IconButton
+                          edge="end"
+                          aria-label="удалить"
+                          onClick={() => handleDeleteBidClick(bid.id)}
+                          color="error"
                         >
-                          {bid.user.name?.[0] || '?'}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={`₽${bid.amount}`}
-                        secondary={
-                          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography
-                              component="span"
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-                              onClick={() => navigate(`/profile/${bid.user.id}`)}
-                            >
-                              {bid.user.name || 'Аноним'}
-                            </Typography>
-                            <Typography component="span" variant="body2" color="text.secondary">
-                              - {format(new Date(bid.createdAt), 'PPp')}
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
+                          <DeleteIcon />
+                        </IconButton>
+                      )
+                    }
+                  >
+                    <ListItemAvatar>
+                      <Avatar
+                        src={bid.user.profileImage ? `${process.env.REACT_APP_API_URL}/uploads/${bid.user.profileImage}` : undefined}
+                        onClick={() => navigate(`/profile/${bid.user.id}`)}
+                        sx={{ cursor: 'pointer' }}
+                      >
+                        {bid.user.name?.[0] || '?'}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography
+                          component="span"
+                          onClick={() => navigate(`/profile/${bid.user.id}`)}
+                          sx={{ cursor: 'pointer', color: 'primary.main' }}
+                        >
+                          {bid.user.name || 'Аноним'}
+                        </Typography>
+                      }
+                      secondary={`${bid.amount} ₽`}
+                    />
+                  </ListItem>
                 ))
               )}
             </List>
@@ -342,6 +391,24 @@ const LotDetails: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)}>Отменить</Button>
           <Button onClick={handleDeleteConfirm} color="error">
+            Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={deleteBidDialogOpen}
+        onClose={() => setDeleteBidDialogOpen(false)}
+      >
+        <DialogTitle>Удаление ставки</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Вы уверены, что хотите удалить эту ставку? Это действие нельзя отменить.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteBidDialogOpen(false)}>Отменить</Button>
+          <Button onClick={handleDeleteBidConfirm} color="error">
             Удалить
           </Button>
         </DialogActions>

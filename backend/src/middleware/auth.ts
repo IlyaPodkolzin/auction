@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { prisma } from '../index';
 
 interface AuthRequest extends Request {
   user?: {
@@ -7,7 +8,7 @@ interface AuthRequest extends Request {
   };
 }
 
-export const authenticateToken = (
+export const authenticateToken = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -16,7 +17,7 @@ export const authenticateToken = (
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'Требуется авторизация' });
   }
 
   try {
@@ -24,6 +25,22 @@ export const authenticateToken = (
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(403).json({ error: 'Invalid token' });
+    return res.status(403).json({ error: 'Недействительный токен' });
+  }
+};
+
+export const isAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId }
+    });
+
+    if (!user || user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Требуются права администратора' });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(500).json({ error: 'Ошибка при проверке прав доступа' });
   }
 }; 
