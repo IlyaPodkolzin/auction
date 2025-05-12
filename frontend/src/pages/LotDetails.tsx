@@ -293,13 +293,30 @@ const LotDetails: React.FC = () => {
                       <ListItemAvatar>
                         <Avatar
                           src={bid.user.profileImage ? `${process.env.REACT_APP_API_URL}/uploads/${bid.user.profileImage}` : undefined}
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => navigate(`/profile/${bid.user.id}`)}
                         >
                           {bid.user.name?.[0] || '?'}
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
                         primary={`₽${bid.amount}`}
-                        secondary={`${bid.user.name || 'Аноним'} - ${format(new Date(bid.createdAt), 'PPp')}`}
+                        secondary={
+                          <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography
+                              component="span"
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                              onClick={() => navigate(`/profile/${bid.user.id}`)}
+                            >
+                              {bid.user.name || 'Аноним'}
+                            </Typography>
+                            <Typography component="span" variant="body2" color="text.secondary">
+                              - {format(new Date(bid.createdAt), 'PPp')}
+                            </Typography>
+                          </Box>
+                        }
                       />
                     </ListItem>
                     <Divider />

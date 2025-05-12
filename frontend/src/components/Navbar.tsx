@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import Notifications from './Notifications';
+import { AccountCircle as AccountIcon } from '@mui/icons-material';
 
 const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -76,6 +77,16 @@ const Navbar: React.FC = () => {
             >
               Мои ставки
             </Button>
+            {user && (
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to={`/profile/${user.id}`}
+                startIcon={<AccountIcon />}
+              >
+                Профиль
+              </Button>
+            )}
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <IconButton
                 size="large"

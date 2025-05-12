@@ -10,6 +10,7 @@ import lotRoutes from './routes/lots';
 import bidRoutes from './routes/bids';
 import { setupWebSocket } from './websocket';
 import notificationsRouter from './routes/notifications';
+import userRoutes from './routes/users';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/lots', lotRoutes);
 app.use('/api/bids', bidRoutes);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/users', userRoutes);
 
 // WebSocket setup
 setupWebSocket(io);

@@ -11,6 +11,7 @@ import LotDetails from './pages/LotDetails';
 import MyLots from './pages/MyLots';
 import MyBids from './pages/MyBids';
 import ProtectedRoute from './components/ProtectedRoute';
+import Profile from './pages/Profile';
 
 const theme = createTheme({
   palette: {
@@ -57,6 +58,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/profile/:id" element={<Profile />} />
               <Route path="/" element={<Home />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
