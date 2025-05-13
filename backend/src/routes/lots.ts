@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { body, validationResult } from 'express-validator';
 import multer from 'multer';
 import { prisma } from '../index';
 import { authenticateToken } from '../middleware/auth';
@@ -8,32 +7,6 @@ import path from 'path';
 import { Prisma, Category } from '@prisma/client';
 
 const router = Router();
-
-// Define categories enum
-const Category = {
-  ANTIQUES: 'ANTIQUES',
-  ART: 'ART',
-  AUTOMOBILES: 'AUTOMOBILES',
-  BOOKS: 'BOOKS',
-  CLOTHING: 'CLOTHING',
-  COLLECTIBLES: 'COLLECTIBLES',
-  COMPUTERS: 'COMPUTERS',
-  ELECTRONICS: 'ELECTRONICS',
-  FURNITURE: 'FURNITURE',
-  HOME_DECOR: 'HOME_DECOR',
-  JEWELRY: 'JEWELRY',
-  MUSICAL_INSTRUMENTS: 'MUSICAL_INSTRUMENTS',
-  SPORTS_EQUIPMENT: 'SPORTS_EQUIPMENT',
-  STAMPS: 'STAMPS',
-  TOYS: 'TOYS',
-  VINTAGE_ITEMS: 'VINTAGE_ITEMS',
-  WATCHES: 'WATCHES',
-  WINE: 'WINE',
-  WINE_ACCESSORIES: 'WINE_ACCESSORIES',
-  OTHER: 'OTHER'
-} as const;
-
-type CategoryType = typeof Category[keyof typeof Category];
 
 // Configure multer for image upload
 const storage = multer.diskStorage({
@@ -45,24 +18,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage });
-
-interface Lot {
-  id: string;
-  title: string;
-  description: string;
-  startPrice: number;
-  currentPrice: number;
-  status: string;
-  sellerId: string;
-}
-
-interface Bid {
-  id: string;
-  amount: number;
-  userId: string;
-  lotId: string;
-}
+multer({ storage });
 
 // Get all lots
 router.get('/', async (req: Request, res: Response) => {
@@ -115,14 +71,19 @@ router.get('/', async (req: Request, res: Response) => {
     ]);
 
     return res.json({
-      lots,
+      lots: lots || [],
       total,
       page,
       totalPages: Math.ceil(total / limit)
     });
   } catch (error) {
     console.error('Error fetching lots:', error);
-    return res.status(500).json({ error: 'Не удалось получить список лотов' });
+    return res.json({
+      lots: [],
+      total: 0,
+      page: 1,
+      totalPages: 0
+    });
   }
 });
 
