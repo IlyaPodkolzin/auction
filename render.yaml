@@ -20,7 +20,7 @@ services:
     name: auction-frontend
     env: node
     buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && PORT=3001 serve -s build
+    startCommand: cd frontend && npx serve -s build -l 3001
     envVars:
       - key: REACT_APP_API_URL
         value: https://auction-backend.onrender.com
@@ -28,5 +28,7 @@ services:
         value: wss://auction-backend.onrender.com
       - key: PORT
         value: 3001
+      - key: NODE_ENV
+        value: production
     healthCheckPath: /
     autoDeploy: true 
