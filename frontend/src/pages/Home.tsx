@@ -94,7 +94,7 @@ const Home: React.FC = () => {
       if (sortOrder) params.append('sortOrder', sortOrder);
 
       const response = await axios.get(`/api/lots?${params.toString()}`);
-      setLots(response.data);
+      setLots(response.data.lots);
       setError(null);
     } catch (err) {
       setError('Не удалось получить лоты');

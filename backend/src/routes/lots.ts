@@ -18,7 +18,7 @@ const storage = multer.diskStorage({
   }
 });
 
-multer({ storage });
+const upload = multer({ storage });
 
 // Get all lots
 router.get('/', async (req: Request, res: Response) => {
@@ -152,28 +152,35 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Create new lot
-router.post('/', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+router.post('/', authenticateToken, upload.array('images', 5), async (req: Request & { user?: { userId: string } }, res: Response) => {
   try {
-    const { title, description, startPrice, images, startTime, endTime, category } = req.body;
+    const { title, description, startPrice, startTime, endTime, category } = req.body;
+    const files = (req.files as Express.Multer.File[]) || [];
+    const images = files.length > 0 ? files.map(file => file.filename) : ['default-lot.jpg'];
+
+    if (!req.user?.userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     const lot = await prisma.lot.create({
       data: {
         title,
         description,
-        startPrice,
-        currentPrice: startPrice,
+        startPrice: Number(startPrice),
+        currentPrice: Number(startPrice),
         images,
         startTime: new Date(startTime),
         endTime: new Date(endTime),
         category: category as Category,
-        sellerId: req.user!.userId
+        sellerId: req.user.userId,
+        status: 'PENDING'
       }
     });
 
     return res.status(201).json(lot);
   } catch (error) {
     console.error('Error creating lot:', error);
-    return res.status(500).json({ error: 'Не удалось создать лот' });
+    return res.status(500).json({ error: 'Failed to create lot' });
   }
 });
 
@@ -217,7 +224,7 @@ router.patch('/:id', authenticateToken, async (req: Request & { user?: { userId:
 });
 
 // Delete lot
-router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId: string; role: string } }, res: Response) => {
   try {
     const lotId = req.params.id;
 
@@ -234,12 +241,8 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
       return res.status(404).json({ error: 'Лот не найден' });
     }
 
-    if (lot.sellerId !== req.user!.userId) {
+    if (lot.sellerId !== req.user!.userId && req.user!.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Нет прав для удаления этого лота' });
-    }
-
-    if (lot.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Нельзя удалить лот, который уже начался' });
     }
 
     // Get unique bidders before deleting the lot

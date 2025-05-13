@@ -184,22 +184,6 @@ const LotDetails: React.FC = () => {
     }
   };
 
-  const handleDeleteBid = async (bidId: string) => {
-    if (!window.confirm('Вы уверены, что хотите удалить эту ставку?')) {
-      return;
-    }
-
-    try {
-      await axios.delete(`/api/bids/${bidId}`);
-      // Обновляем данные лота
-      const response = await axios.get(`/api/lots/${id}`);
-      setLot(response.data);
-    } catch (error) {
-      console.error('Ошибка при удалении ставки:', error);
-      // Показываем сообщение об ошибке пользователю
-    }
-  };
-
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -304,17 +288,22 @@ const LotDetails: React.FC = () => {
               </Alert>
             )}
 
-            {isOwner && (
+            {(isOwner) && (
               <Box sx={{ mt: 2 }}>
                 <Alert severity="info" sx={{ mb: 2 }}>
                   Вы продавец этого лота
                 </Alert>
+              </Box>
+            )}
+
+            {(isOwner || currentUser?.role === 'ADMIN') && (
+              <Box sx={{ mt: 2 }}>
                 <Button
-                  variant="outlined"
-                  color="error"
-                  fullWidth
-                  onClick={handleDeleteClick}
-                  startIcon={<DeleteIcon />}
+                variant="outlined"
+                color="error"
+                fullWidth
+                onClick={handleDeleteClick}
+                startIcon={<DeleteIcon />}
                 >
                   Удалить лот
                 </Button>

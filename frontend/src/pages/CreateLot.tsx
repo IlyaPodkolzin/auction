@@ -103,6 +103,8 @@ const CreateLot: React.FC = () => {
 
     try {
       const formDataToSend = new FormData();
+      console.log(formData);
+
       Object.entries(formData).forEach(([key, value]) => {
         if (key === 'images') {
           value.forEach((file: File) => {
@@ -112,12 +114,14 @@ const CreateLot: React.FC = () => {
           formDataToSend.append(key, value);
         }
       });
+      console.log(formDataToSend.get("title"));
 
       const response = await axios.post('/api/lots', formDataToSend, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
+      
 
       navigate(`/lots/${response.data.id}`);
     } catch (error) {
