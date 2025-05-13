@@ -1,50 +1,22 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../index';
-import { authenticateToken, isAdmin } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 import { Prisma } from '@prisma/client';
-
-interface User {
-  id: string;
-  email: string;
-  name: string | null;
-  role: string;
-}
-
-interface Bid {
-  id: string;
-  amount: number;
-  userId: string;
-  lotId: string;
-  lot: {
-    id: string;
-    currentPrice: number;
-    startPrice: number;
-  };
-}
-
-interface Lot {
-  id: string;
-  currentPrice: number;
-  startPrice: number;
-}
 
 const router = Router();
 
 // Get user profile
-router.get('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+router.get('/profile', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
   try {
-    const requestingUser = await prisma.user.findUnique({
-      where: { id: req.user!.userId }
-    });
-
     const user = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.user!.userId },
       select: {
         id: true,
-        name: true,
         email: true,
+        name: true,
         profileImage: true,
-        role: true
+        role: true,
+        createdAt: true
       }
     });
 
@@ -52,138 +24,146 @@ router.get('/:id', authenticateToken, async (req: Request & { user?: { userId: s
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
 
-    // Если это не админ и не свой профиль, скрываем email
-    if (requestingUser?.role !== 'ADMIN' && req.user!.userId !== user.id) {
-      delete user.email;
-    }
-
     return res.json(user);
   } catch (error) {
-    console.error('Error fetching user:', error);
-    return res.status(500).json({ error: 'Не удалось получить информацию о пользователе' });
+    console.error('Error fetching user profile:', error);
+    return res.status(500).json({ error: 'Не удалось получить профиль пользователя' });
   }
 });
 
-// Get user statistics
-router.get('/:id/stats', async (req: Request, res: Response) => {
+// Update user profile
+router.patch('/profile', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
   try {
-    const [totalLots, soldLots] = await Promise.all([
-      prisma.lot.count({
-        where: { sellerId: req.params.id }
-      }),
-      prisma.lot.count({
-        where: {
-          sellerId: req.params.id,
-          status: 'SOLD'
-        }
-      })
-    ]);
+    const { name, profileImage } = req.body;
 
-    return res.json({ totalLots, soldLots });
-  } catch (error) {
-    console.error('Error fetching user stats:', error);
-    return res.status(500).json({ error: 'Не удалось получить статистику пользователя' });
-  }
-});
-
-// Delete user account (admin or self)
-router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
-  try {
-    const userId = req.params.id;
-    const requestingUser = await prisma.user.findUnique({
-      where: { id: req.user!.userId }
-    });
-
-    // Проверяем права доступа
-    if (requestingUser?.role !== 'ADMIN' && userId !== req.user!.userId) {
-      return res.status(403).json({ error: 'Нет прав для удаления этого аккаунта' });
-    }
-
-    // Delete user account and all related data in a transaction
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Get all active lots where user has bids
-      const activeLotsWithBids = await tx.lot.findMany({
-        where: {
-          status: 'ACTIVE',
-          bids: {
-            some: {
-              userId: userId
-            }
-          }
-        },
-        include: {
-          bids: {
-            orderBy: {
-              amount: 'desc'
-            }
-          }
-        }
-      });
-
-      // Update current price for active lots where user had the highest bid
-      for (const lot of activeLotsWithBids) {
-        const userBids = lot.bids.filter((bid: Bid) => bid.userId === userId);
-        const highestUserBid = Math.max(...userBids.map((bid: Bid) => bid.amount));
-        
-        if (lot.currentPrice === highestUserBid) {
-          // Find the next highest bid
-          const nextHighestBid = lot.bids.find((bid: Bid) => bid.userId !== userId);
-          if (nextHighestBid) {
-            await tx.lot.update({
-              where: { id: lot.id },
-              data: { currentPrice: nextHighestBid.amount }
-            });
-          } else {
-            // If no other bids, set price to start price
-            await tx.lot.update({
-              where: { id: lot.id },
-              data: { currentPrice: lot.startPrice }
-            });
-          }
-        }
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user!.userId },
+      data: {
+        name,
+        profileImage
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        profileImage: true,
+        role: true,
+        createdAt: true
       }
-
-      // Get all lots created by the user
-      const userLots = await tx.lot.findMany({
-        where: { sellerId: userId },
-        select: { id: true }
-      });
-
-      // Delete all notifications related to user's lots
-      await tx.notification.deleteMany({
-        where: {
-          OR: [
-            { userId },
-            { lotId: { in: userLots.map((lot: Lot) => lot.id) } }
-          ]
-        }
-      });
-
-      // Delete all bids related to user's lots
-      await tx.bid.deleteMany({
-        where: {
-          OR: [
-            { userId },
-            { lotId: { in: userLots.map((lot: Lot) => lot.id) } }
-          ]
-        }
-      });
-
-      // Delete all user's lots
-      await tx.lot.deleteMany({
-        where: { sellerId: userId }
-      });
-
-      // Finally delete the user
-      await tx.user.delete({
-        where: { id: userId }
-      });
     });
 
-    return res.status(204).send();
+    return res.json(updatedUser);
   } catch (error) {
-    console.error('Error deleting user:', error);
-    return res.status(500).json({ error: 'Не удалось удалить аккаунт пользователя' });
+    console.error('Error updating user profile:', error);
+    return res.status(500).json({ error: 'Не удалось обновить профиль пользователя' });
+  }
+});
+
+// Get user's bids
+router.get('/bids', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+  try {
+    const bids = await prisma.bid.findMany({
+      where: { userId: req.user!.userId },
+      include: {
+        lot: {
+          select: {
+            id: true,
+            title: true,
+            images: true,
+            currentPrice: true,
+            status: true,
+            endTime: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return res.json(bids);
+  } catch (error) {
+    console.error('Error fetching user bids:', error);
+    return res.status(500).json({ error: 'Не удалось получить ставки пользователя' });
+  }
+});
+
+// Get user's lots
+router.get('/lots', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+  try {
+    const lots = await prisma.lot.findMany({
+      where: { sellerId: req.user!.userId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return res.json(lots);
+  } catch (error) {
+    console.error('Error fetching user lots:', error);
+    return res.status(500).json({ error: 'Не удалось получить лоты пользователя' });
+  }
+});
+
+// Get user's won lots
+router.get('/won-lots', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+  try {
+    const userBids = await prisma.bid.findMany({
+      where: { userId: req.user!.userId },
+      include: {
+        lot: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const wonLots = userBids
+      .filter(bid => bid.lot.status === 'COMPLETED' && bid.amount === bid.lot.currentPrice)
+      .map(bid => bid.lot);
+
+    return res.json(wonLots);
+  } catch (error) {
+    console.error('Error fetching won lots:', error);
+    return res.status(500).json({ error: 'Не удалось получить выигранные лоты' });
+  }
+});
+
+// Get user's active bids
+router.get('/active-bids', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+  try {
+    const userBids = await prisma.bid.findMany({
+      where: { userId: req.user!.userId },
+      include: {
+        lot: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const activeBids = userBids.filter(bid => bid.lot.status === 'ACTIVE');
+    const highestBids = activeBids.reduce((acc: { [key: string]: typeof activeBids[0] }, bid) => {
+      if (!acc[bid.lotId] || bid.amount > acc[bid.lotId].amount) {
+        acc[bid.lotId] = bid;
+      }
+      return acc;
+    }, {});
+
+    return res.json(Object.values(highestBids));
+  } catch (error) {
+    console.error('Error fetching active bids:', error);
+    return res.status(500).json({ error: 'Не удалось получить активные ставки' });
+  }
+});
+
+// Get user's active lots
+router.get('/active-lots', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+  try {
+    const lots = await prisma.lot.findMany({
+      where: {
+        sellerId: req.user!.userId,
+        status: 'ACTIVE'
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return res.json(lots);
+  } catch (error) {
+    console.error('Error fetching active lots:', error);
+    return res.status(500).json({ error: 'Не удалось получить активные лоты' });
   }
 });
 

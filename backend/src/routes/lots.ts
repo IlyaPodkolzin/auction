@@ -5,7 +5,7 @@ import { prisma } from '../index';
 import { authenticateToken } from '../middleware/auth';
 import { updateLotStatus } from '../utils/lotStatus';
 import path from 'path';
-import { Prisma } from '@prisma/client';
+import { Prisma, Category } from '@prisma/client';
 
 const router = Router();
 
@@ -64,91 +64,65 @@ interface Bid {
   lotId: string;
 }
 
-// Get all lots with search and filters
+// Get all lots
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const {
-      search,
-      category,
-      status,
-      minPrice,
-      maxPrice,
-      sortBy,
-      sortOrder = 'desc'
-    } = req.query;
+    const { category, status, search, sort = 'createdAt', order = 'desc' } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
 
-    const where: any = {};
-
+    const where: Prisma.LotWhereInput = {};
+    if (category) where.category = category as Category;
+    if (status) where.status = status as string;
     if (search) {
-      where.title = {
-        contains: search as string,
-        mode: 'insensitive'
-      };
+      where.OR = [
+        { title: { contains: search as string, mode: 'insensitive' } },
+        { description: { contains: search as string, mode: 'insensitive' } }
+      ];
     }
 
-    if (category) {
-      where.category = category;
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (minPrice || maxPrice) {
-      where.currentPrice = {};
-      if (minPrice) where.currentPrice.gte = parseFloat(minPrice as string);
-      if (maxPrice) where.currentPrice.lte = parseFloat(maxPrice as string);
-    }
-
-    const orderBy: any = {};
-    if (sortBy) {
-      orderBy[sortBy as string] = sortOrder;
-    } else {
-      orderBy.createdAt = 'desc';
-    }
-
-    const lots = await prisma.lot.findMany({
-      where,
-      include: {
-        seller: {
-          select: {
-            id: true,
-            name: true,
-            profileImage: true
+    const [lots, total] = await Promise.all([
+      prisma.lot.findMany({
+        where,
+        include: {
+          seller: {
+            select: {
+              id: true,
+              name: true,
+              profileImage: true
+            }
+          },
+          bids: {
+            orderBy: { amount: 'desc' },
+            take: 1,
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  profileImage: true
+                }
+              }
+            }
           }
-        }
-      },
-      orderBy
+        },
+        orderBy: { [sort as string]: order },
+        skip,
+        take: limit
+      }),
+      prisma.lot.count({ where })
+    ]);
+
+    return res.json({
+      lots,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
     });
-
-    // Update status for each lot
-    await Promise.all(lots.map((lot: Lot) => updateLotStatus(lot.id)));
-
-    // Fetch updated lots
-    const updatedLots = await prisma.lot.findMany({
-      where,
-      include: {
-        seller: {
-          select: {
-            id: true,
-            name: true,
-            profileImage: true
-          }
-        }
-      },
-      orderBy
-    });
-
-    // Add default image if no images exist
-    const lotsWithDefaultImage = updatedLots.map(lot => ({
-      ...lot,
-      images: lot.images.length > 0 ? lot.images : ['default-lot.jpg']
-    }));
-
-    return res.json(lotsWithDefaultImage);
   } catch (error) {
     console.error('Error fetching lots:', error);
-    return res.status(500).json({ error: 'Failed to fetch lots' });
+    return res.status(500).json({ error: 'Не удалось получить список лотов' });
   }
 });
 
@@ -174,7 +148,7 @@ router.get('/my-lots', authenticateToken, async (req: Request & { user?: { userI
   }
 });
 
-// Get single lot
+// Get lot by ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const lot = await prisma.lot.findUnique({
@@ -188,6 +162,7 @@ router.get('/:id', async (req: Request, res: Response) => {
           }
         },
         bids: {
+          orderBy: { amount: 'desc' },
           include: {
             user: {
               select: {
@@ -196,130 +171,56 @@ router.get('/:id', async (req: Request, res: Response) => {
                 profileImage: true
               }
             }
-          },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
-    });
-
-    if (!lot) {
-      return res.status(404).json({ error: 'Lot not found' });
-    }
-
-    // Update lot status
-    await updateLotStatus(lot.id);
-
-    // Fetch updated lot
-    const updatedLot = await prisma.lot.findUnique({
-      where: { id: req.params.id },
-      include: {
-        seller: {
-          select: {
-            id: true,
-            name: true,
-            profileImage: true
           }
-        },
-        bids: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                profileImage: true
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
         }
       }
-    });
-
-    return res.json(updatedLot);
-  } catch (error) {
-    return res.status(500).json({ error: 'Failed to fetch lot' });
-  }
-});
-
-// Create a new lot
-router.post(
-  '/',
-  authenticateToken,
-  upload.array('images', 5),
-  [
-    body('title').notEmpty(),
-    body('description').notEmpty(),
-    body('startPrice').isFloat({ min: 0 }),
-    body('startTime').isISO8601(),
-    body('endTime').isISO8601(),
-    body('category').isIn(Object.values(Category))
-  ],
-  async (req: Request & { user?: { userId: string } }, res: Response) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { title, description, startPrice, startTime, endTime, category } = req.body;
-      const images = (req.files as Express.Multer.File[]).map(file => file.filename);
-
-      const lot = await prisma.lot.create({
-        data: {
-          title,
-          description,
-          startPrice: parseFloat(startPrice),
-          currentPrice: parseFloat(startPrice),
-          images: images.length > 0 ? images : ['default-lot.jpg'],
-          startTime: new Date(startTime),
-          endTime: new Date(endTime),
-          category: category as CategoryType,
-          sellerId: req.user!.userId
-        }
-      });
-
-      return res.status(201).json(lot);
-    } catch (error) {
-      console.error('Error creating lot:', error);
-      return res.status(500).json({ error: 'Failed to create lot' });
-    }
-  }
-);
-
-// Update lot status
-router.patch('/:id/status', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
-  try {
-    const { status } = req.body;
-    const lot = await prisma.lot.findUnique({
-      where: { id: req.params.id }
     });
 
     if (!lot) {
-      return res.status(404).json({ error: 'Lot not found' });
+      return res.status(404).json({ error: 'Лот не найден' });
     }
 
-    if (lot.sellerId !== req.user!.userId) {
-      return res.status(403).json({ error: 'Not authorized' });
-    }
+    // Update lot status if needed
+    await updateLotStatus(prisma, lot.id);
 
-    const updatedLot = await prisma.lot.update({
-      where: { id: req.params.id },
-      data: { status }
-    });
-
-    return res.json(updatedLot);
+    return res.json(lot);
   } catch (error) {
-    return res.status(500).json({ error: 'Failed to update lot status' });
+    console.error('Error fetching lot:', error);
+    return res.status(500).json({ error: 'Не удалось получить информацию о лоте' });
   }
 });
 
-// Delete lot (admin or owner)
-router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+// Create new lot
+router.post('/', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+  try {
+    const { title, description, startPrice, images, startTime, endTime, category } = req.body;
+
+    const lot = await prisma.lot.create({
+      data: {
+        title,
+        description,
+        startPrice,
+        currentPrice: startPrice,
+        images,
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        category: category as Category,
+        sellerId: req.user!.userId
+      }
+    });
+
+    return res.status(201).json(lot);
+  } catch (error) {
+    console.error('Error creating lot:', error);
+    return res.status(500).json({ error: 'Не удалось создать лот' });
+  }
+});
+
+// Update lot
+router.patch('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
   try {
     const lotId = req.params.id;
-    const requestingUser = await prisma.user.findUnique({
-      where: { id: req.user!.userId }
-    });
+    const { title, description, images, category } = req.body;
 
     const lot = await prisma.lot.findUnique({
       where: { id: lotId }
@@ -329,31 +230,72 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
       return res.status(404).json({ error: 'Лот не найден' });
     }
 
-    // Проверяем права доступа
-    if (requestingUser?.role !== 'ADMIN' && lot.sellerId !== req.user!.userId) {
+    if (lot.sellerId !== req.user!.userId) {
+      return res.status(403).json({ error: 'Нет прав для изменения этого лота' });
+    }
+
+    if (lot.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Нельзя изменить лот, который уже начался' });
+    }
+
+    const updatedLot = await prisma.lot.update({
+      where: { id: lotId },
+      data: {
+        title,
+        description,
+        images,
+        category: category as Category
+      }
+    });
+
+    return res.json(updatedLot);
+  } catch (error) {
+    console.error('Error updating lot:', error);
+    return res.status(500).json({ error: 'Не удалось обновить лот' });
+  }
+});
+
+// Delete lot
+router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId: string } }, res: Response) => {
+  try {
+    const lotId = req.params.id;
+
+    const lot = await prisma.lot.findUnique({
+      where: { id: lotId },
+      include: {
+        bids: {
+          select: { userId: true }
+        }
+      }
+    });
+
+    if (!lot) {
+      return res.status(404).json({ error: 'Лот не найден' });
+    }
+
+    if (lot.sellerId !== req.user!.userId) {
       return res.status(403).json({ error: 'Нет прав для удаления этого лота' });
     }
 
-    // Get unique bidders before deleting the lot
-    const bidders = await prisma.bid.findMany({
-      where: { lotId },
-      select: { userId: true },
-      distinct: ['userId']
-    });
+    if (lot.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Нельзя удалить лот, который уже начался' });
+    }
 
-    const uniqueBidderIds = bidders.map((bid: Bid) => bid.userId);
+    // Get unique bidders before deleting the lot
+    const uniqueBidders = Array.from(new Set(lot.bids.map(bid => bid.userId)));
 
     // Save lot title for notifications
     const lotTitle = lot.title;
 
-    // Delete the lot and all related data in a transaction
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Delete all bids and notifications related to the lot
-      await tx.bid.deleteMany({
+    // Delete the lot and related data in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete all notifications related to this lot
+      await tx.notification.deleteMany({
         where: { lotId }
       });
 
-      await tx.notification.deleteMany({
+      // Delete all bids for this lot
+      await tx.bid.deleteMany({
         where: { lotId }
       });
 
@@ -365,12 +307,12 @@ router.delete('/:id', authenticateToken, async (req: Request & { user?: { userId
 
     // Create notifications for all bidders
     await Promise.all(
-      uniqueBidderIds.map((bidderId: string) =>
+      uniqueBidders.map(bidderId =>
         prisma.notification.create({
           data: {
-            userId: bidderId,
             type: 'LOT_DELETED',
-            message: `Лот "${lotTitle}" был удален`
+            message: `Лот "${lotTitle}" был удален продавцом`,
+            userId: bidderId
           }
         })
       )
