@@ -16,10 +16,17 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+
+const allowedOrigins = ['http://localhost:3001', 'http://localhost:3002'];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 const io = new Server(httpServer, {
   cors: {
-    origin: ['http://localhost:3001', 'http://localhost:3002'],
-    methods: ['GET', 'POST']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    credentials: true
   }
 });
 
@@ -27,8 +34,9 @@ export const prisma = new PrismaClient();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3001', 'http://localhost:3002'],
-  credentials: true
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']
 }));
 app.use(express.json());
 
