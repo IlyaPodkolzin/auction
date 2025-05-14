@@ -14,8 +14,8 @@ COPY . .
 # Собираем приложение
 RUN npm run build
 
-# Устанавливаем serve глобально
-RUN npm install -g serve
+# Устанавливаем serve глобально (используем конкретную версию)
+RUN npm install -g serve@14.2.1
 
 # Открываем порт 3001
 EXPOSE 3001
