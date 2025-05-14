@@ -92,7 +92,7 @@ const Home: React.FC = () => {
       if (maxPrice) params.append('maxPrice', maxPrice);
       if (sortBy) params.append('sortBy', sortBy);
       if (sortOrder) params.append('sortOrder', sortOrder);
-
+      
       const response = await axios.get(`/api/lots?${params.toString()}`);
       setLots(response.data.lots);
       setError(null);
