@@ -2,9 +2,13 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Определяем аргумент сборки для API URL
+# Определяем аргументы сборки
 ARG REACT_APP_API_URL
+ARG REACT_APP_GOOGLE_CLIENT_ID
+
+# Устанавливаем переменные окружения
 ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+ENV REACT_APP_GOOGLE_CLIENT_ID=${REACT_APP_GOOGLE_CLIENT_ID}
 
 # Копируем файлы package.json и package-lock.json
 COPY package*.json ./
