@@ -1,91 +1,69 @@
-import { Server } from 'socket.io';
-import { Server as HttpServer } from 'http';
-import { PrismaClient } from '@prisma/client';
+import { Server, Socket } from 'socket.io';
+import { prisma } from './index';
 
-const prisma = new PrismaClient();
+export const setupWebSocket = (io: Server) => {
+  io.on('connection', (socket: Socket) => {
+    console.log('Client connected:', socket.id);
 
-export const initializeWebSocket = (httpServer: HttpServer) => {
-  const io = new Server(httpServer, {
-    cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-      credentials: true
-    }
-  });
-
-  io.on('connection', (socket) => {
-    socket.on('joinLot', async (lotId: string) => {
+    // Join lot room
+    socket.on('joinLot', (lotId: string) => {
       socket.join(`lot-${lotId}`);
     });
 
+    // Leave lot room
     socket.on('leaveLot', (lotId: string) => {
       socket.leave(`lot-${lotId}`);
     });
 
-    socket.on('placeBid', async (data: { lotId: string; amount: number; userId: string }) => {
+    // Handle new bid
+    socket.on('placeBid', async ({ lotId, userId, amount }) => {
       try {
-        const { lotId, amount, userId } = data;
-
-        // Проверяем, что лот существует и активен
         const lot = await prisma.lot.findUnique({
           where: { id: lotId },
-          include: {
-            bids: {
-              orderBy: { createdAt: 'desc' },
-              take: 1
-            }
-          }
+          include: { bids: true }
         });
 
-        if (!lot || lot.status !== 'ACTIVE') {
-          socket.emit('error', 'Лот не найден или неактивен');
+        if (!lot) {
+          socket.emit('error', 'Lot not found');
           return;
         }
 
-        // Проверяем, что ставка выше текущей цены
-        const currentPrice = lot.bids[0]?.amount || lot.startPrice;
-        if (amount <= currentPrice) {
-          socket.emit('error', 'Ставка должна быть выше текущей цены');
+        if (lot.status !== 'ACTIVE') {
+          socket.emit('error', 'Lot is not active');
           return;
         }
 
-        // Создаем новую ставку
+        if (amount <= lot.currentPrice) {
+          socket.emit('error', 'Bid must be higher than current price');
+          return;
+        }
+
         const bid = await prisma.bid.create({
           data: {
             amount,
             lotId,
             userId
-          },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                profileImage: true
-              }
-            }
           }
         });
 
-        // Обновляем текущую цену лота
         await prisma.lot.update({
           where: { id: lotId },
           data: { currentPrice: amount }
         });
 
-        // Отправляем обновление всем участникам аукциона
+        // Broadcast new bid to all clients in the lot room
         io.to(`lot-${lotId}`).emit('newBid', {
           bid,
           currentPrice: amount
         });
       } catch (error) {
-        socket.emit('error', 'Ошибка при размещении ставки');
+        console.error('Error placing bid:', error);
+        socket.emit('error', 'Failed to place bid');
       }
     });
 
     socket.on('disconnect', () => {
-      // Очистка при отключении
+      console.log('Client disconnected:', socket.id);
     });
   });
-
-  return io;
 }; 

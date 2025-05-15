@@ -45,21 +45,25 @@ const MyLots: React.FC = () => {
   const [selectedLot, setSelectedLot] = useState<Lot | null>(null);
 
   useEffect(() => {
-    const fetchLots = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get('/api/lots/my');
-        setLots(response.data);
-        setError(null);
-      } catch (err) {
-        setError('Не удалось получить ваши лоты');
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    console.log('MyLots component mounted');
     fetchLots();
   }, []);
+
+  const fetchLots = async () => {
+    console.log('Fetching lots...');
+    try {
+      setLoading(true);
+      const response = await axios.get('/api/lots/my-lots');
+      console.log('Lots fetched:', response.data);
+      setLots(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching lots:', err);
+      setError('Не удалось загрузить ваши лоты');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDeleteClick = (lot: Lot) => {
     setSelectedLot(lot);
