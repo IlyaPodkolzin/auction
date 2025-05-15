@@ -21,6 +21,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/axios';
 import LotStatus from '../components/LotStatus';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 // Define categories enum
 const Category = {
@@ -45,6 +47,30 @@ const Category = {
   WINE_ACCESSORIES: 'WINE_ACCESSORIES',
   OTHER: 'OTHER'
 } as const;
+
+// Russian translations for categories
+const CategoryTranslations: Record<CategoryType, string> = {
+  ANTIQUES: 'Антиквариат',
+  ART: 'Искусство',
+  AUTOMOBILES: 'Автомобили',
+  BOOKS: 'Книги',
+  CLOTHING: 'Одежда',
+  COLLECTIBLES: 'Коллекционные предметы',
+  COMPUTERS: 'Компьютеры',
+  ELECTRONICS: 'Электроника',
+  FURNITURE: 'Мебель',
+  HOME_DECOR: 'Декор для дома',
+  JEWELRY: 'Украшения',
+  MUSICAL_INSTRUMENTS: 'Музыкальные инструменты',
+  SPORTS_EQUIPMENT: 'Спортивное оборудование',
+  STAMPS: 'Марки',
+  TOYS: 'Игрушки',
+  VINTAGE_ITEMS: 'Винтажные вещи',
+  WATCHES: 'Часы',
+  WINE: 'Вино',
+  WINE_ACCESSORIES: 'Аксессуары для вина',
+  OTHER: 'Другое'
+};
 
 type CategoryType = typeof Category[keyof typeof Category];
 
@@ -264,10 +290,10 @@ const Home: React.FC = () => {
                     Текущая цена: ₽{lot.currentPrice}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Заканчивается: {new Date(lot.endTime).toLocaleString()}
+                    Заканчивается: {format(new Date(lot.endTime), 'd MMMM yyyy, HH:mm', { locale: ru })}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Категория: {lot.category.replace('_', ' ')}
+                    Категория: {CategoryTranslations[lot.category]}
                   </Typography>
                 </CardContent>
               </Card>

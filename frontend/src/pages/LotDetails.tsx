@@ -25,10 +25,61 @@ import {
   IconButton
 } from '@mui/material';
 import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { io, Socket } from 'socket.io-client';
 import axios from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Delete as DeleteIcon } from '@mui/icons-material';
+
+// Define categories enum
+const Category = {
+  ANTIQUES: 'ANTIQUES',
+  ART: 'ART',
+  AUTOMOBILES: 'AUTOMOBILES',
+  BOOKS: 'BOOKS',
+  CLOTHING: 'CLOTHING',
+  COLLECTIBLES: 'COLLECTIBLES',
+  COMPUTERS: 'COMPUTERS',
+  ELECTRONICS: 'ELECTRONICS',
+  FURNITURE: 'FURNITURE',
+  HOME_DECOR: 'HOME_DECOR',
+  JEWELRY: 'JEWELRY',
+  MUSICAL_INSTRUMENTS: 'MUSICAL_INSTRUMENTS',
+  SPORTS_EQUIPMENT: 'SPORTS_EQUIPMENT',
+  STAMPS: 'STAMPS',
+  TOYS: 'TOYS',
+  VINTAGE_ITEMS: 'VINTAGE_ITEMS',
+  WATCHES: 'WATCHES',
+  WINE: 'WINE',
+  WINE_ACCESSORIES: 'WINE_ACCESSORIES',
+  OTHER: 'OTHER'
+} as const;
+
+// Russian translations for categories
+const CategoryTranslations: Record<CategoryType, string> = {
+  ANTIQUES: 'Антиквариат',
+  ART: 'Искусство',
+  AUTOMOBILES: 'Автомобили',
+  BOOKS: 'Книги',
+  CLOTHING: 'Одежда',
+  COLLECTIBLES: 'Коллекционные предметы',
+  COMPUTERS: 'Компьютеры',
+  ELECTRONICS: 'Электроника',
+  FURNITURE: 'Мебель',
+  HOME_DECOR: 'Декор для дома',
+  JEWELRY: 'Украшения',
+  MUSICAL_INSTRUMENTS: 'Музыкальные инструменты',
+  SPORTS_EQUIPMENT: 'Спортивное оборудование',
+  STAMPS: 'Марки',
+  TOYS: 'Игрушки',
+  VINTAGE_ITEMS: 'Винтажные вещи',
+  WATCHES: 'Часы',
+  WINE: 'Вино',
+  WINE_ACCESSORIES: 'Аксессуары для вина',
+  OTHER: 'Другое'
+};
+
+type CategoryType = typeof Category[keyof typeof Category];
 
 interface Bid {
   id: string;
@@ -57,6 +108,7 @@ interface Lot {
     profileImage: string | null;
   };
   bids: Bid[];
+  category: CategoryType;
 }
 
 const LotDetails: React.FC = () => {
@@ -252,10 +304,16 @@ const LotDetails: React.FC = () => {
                 Начальная цена: ₽{lot.startPrice}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Заканчивается: {format(new Date(lot.endTime), 'PPp')}
+                Начало: {format(new Date(lot.startTime), 'd MMMM yyyy, HH:mm', { locale: ru })}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Заканчивается: {format(new Date(lot.endTime), 'd MMMM yyyy, HH:mm', { locale: ru })}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Продавец: {lot.seller.name || 'Аноним'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Категория: {CategoryTranslations[lot.category]}
               </Typography>
             </Box>
 
@@ -268,7 +326,7 @@ const LotDetails: React.FC = () => {
                   value={bidAmount}
                   onChange={(e) => setBidAmount(e.target.value)}
                   sx={{ mb: 2 }}
-                  inputProps={{ min: lot.currentPrice + 0.01, step: 0.01 }}
+                  inputProps={{ min: lot.currentPrice + 0.01, step: 0.01, max: 1000000000 }}
                 />
                 <Button
                   variant="contained"

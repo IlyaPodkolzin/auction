@@ -19,6 +19,8 @@ import {
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import axios from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 // Define categories enum
 const Category = {
@@ -43,6 +45,30 @@ const Category = {
   WINE_ACCESSORIES: 'WINE_ACCESSORIES',
   OTHER: 'OTHER'
 } as const;
+
+// Russian translations for categories
+const CategoryTranslations: Record<CategoryType, string> = {
+  ANTIQUES: 'Антиквариат',
+  ART: 'Искусство',
+  AUTOMOBILES: 'Автомобили',
+  BOOKS: 'Книги',
+  CLOTHING: 'Одежда',
+  COLLECTIBLES: 'Коллекционные предметы',
+  COMPUTERS: 'Компьютеры',
+  ELECTRONICS: 'Электроника',
+  FURNITURE: 'Мебель',
+  HOME_DECOR: 'Декор для дома',
+  JEWELRY: 'Украшения',
+  MUSICAL_INSTRUMENTS: 'Музыкальные инструменты',
+  SPORTS_EQUIPMENT: 'Спортивное оборудование',
+  STAMPS: 'Марки',
+  TOYS: 'Игрушки',
+  VINTAGE_ITEMS: 'Винтажные вещи',
+  WATCHES: 'Часы',
+  WINE: 'Вино',
+  WINE_ACCESSORIES: 'Аксессуары для вина',
+  OTHER: 'Другое'
+};
 
 type CategoryType = typeof Category[keyof typeof Category];
 
@@ -165,6 +191,8 @@ const CreateLot: React.FC = () => {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
+                inputProps={{ maxLength: 40 }}
+                helperText={`${formData.title.length}/40 символов`}
               />
             </Grid>
 
@@ -178,6 +206,8 @@ const CreateLot: React.FC = () => {
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
+                inputProps={{ maxLength: 400 }}
+                helperText={`${formData.description.length}/400 символов`}
               />
             </Grid>
 
@@ -190,7 +220,7 @@ const CreateLot: React.FC = () => {
                 name="startPrice"
                 value={formData.startPrice}
                 onChange={handleInputChange}
-                inputProps={{ min: 0, step: 0.01 }}
+                inputProps={{ min: 0, step: 0.01, max: 1000000000 }}
               />
             </Grid>
 
@@ -205,7 +235,7 @@ const CreateLot: React.FC = () => {
                 >
                   {Object.entries(Category).map(([key, value]) => (
                     <MenuItem key={key} value={value}>
-                      {key.replace(/_/g, ' ')}
+                      {CategoryTranslations[value]}
                     </MenuItem>
                   ))}
                 </Select>
@@ -222,6 +252,9 @@ const CreateLot: React.FC = () => {
                 value={formData.startTime}
                 onChange={handleInputChange}
                 InputLabelProps={{ shrink: true }}
+                inputProps={{
+                  min: new Date().toISOString().slice(0, 16)
+                }}
               />
             </Grid>
 
@@ -235,90 +268,119 @@ const CreateLot: React.FC = () => {
                 value={formData.endTime}
                 onChange={handleInputChange}
                 InputLabelProps={{ shrink: true }}
+                inputProps={{
+                  min: formData.startTime || new Date().toISOString().slice(0, 16)
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Button
-                variant="contained"
-                component="label"
-                fullWidth
-              >
-                Загрузить изображения
-                <input
-                  type="file"
-                  hidden
-                  multiple
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      const files = Array.from(e.target.files);
-                      setFormData(prev => ({
-                        ...prev,
-                        images: files
-                      }));
-                    }
-                  }}
-                  onClick={(e) => {
-                    // Reset the value to ensure onChange fires even if the same file is selected
-                    (e.target as HTMLInputElement).value = '';
-                  }}
-                />
-              </Button>
-              {formData.images.length > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="body2">
-                    {formData.images.length} изображение(й) выбрано
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                    {formData.images.map((file, index) => (
-                      <Box
-                        key={index}
-                        sx={{
-                          position: 'relative',
-                          width: 100,
-                          height: 100,
-                          border: '1px solid #ccc',
-                          borderRadius: 1,
-                          overflow: 'hidden'
-                        }}
-                      >
-                        <img
-                          src={URL.createObjectURL(file)}
-                          alt={`Preview ${index + 1}`}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover'
-                          }}
-                        />
-                        <IconButton
-                          size="small"
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Button
+                  variant="contained"
+                  component="label"
+                  fullWidth
+                >
+                  Загрузить изображения
+                  <input
+                    type="file"
+                    hidden
+                    multiple
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const files = Array.from(e.target.files);
+                        setFormData(prev => ({
+                          ...prev,
+                          images: files
+                        }));
+                      }
+                    }}
+                    onClick={(e) => {
+                      (e.target as HTMLInputElement).value = '';
+                    }}
+                  />
+                </Button>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  fullWidth
+                >
+                  Сделать фото
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const files = Array.from(e.target.files);
+                        setFormData(prev => ({
+                          ...prev,
+                          images: [...prev.images, ...files]
+                        }));
+                      }
+                    }}
+                    onClick={(e) => {
+                      (e.target as HTMLInputElement).value = '';
+                    }}
+                  />
+                </Button>
+                {formData.images.length > 0 && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="body2">
+                      {formData.images.length} изображение(й) выбрано
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                      {formData.images.map((file, index) => (
+                        <Box
+                          key={index}
                           sx={{
-                            position: 'absolute',
-                            top: 0,
-                            right: 0,
-                            bgcolor: 'rgba(0,0,0,0.5)',
-                            color: 'white',
-                            '&:hover': {
-                              bgcolor: 'rgba(0,0,0,0.7)'
-                            }
-                          }}
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              images: prev.images.filter((_, i) => i !== index)
-                            }));
+                            position: 'relative',
+                            width: 100,
+                            height: 100,
+                            border: '1px solid #ccc',
+                            borderRadius: 1,
+                            overflow: 'hidden'
                           }}
                         >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    ))}
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={`Preview ${index + 1}`}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                          />
+                          <IconButton
+                            size="small"
+                            sx={{
+                              position: 'absolute',
+                              top: 0,
+                              right: 0,
+                              bgcolor: 'rgba(0,0,0,0.5)',
+                              color: 'white',
+                              '&:hover': {
+                                bgcolor: 'rgba(0,0,0,0.7)'
+                              }
+                            }}
+                            onClick={() => {
+                              setFormData(prev => ({
+                                ...prev,
+                                images: prev.images.filter((_, i) => i !== index)
+                              }));
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </Box>
                   </Box>
-                </Box>
-              )}
+                )}
+              </Box>
             </Grid>
 
             <Grid item xs={12}>
