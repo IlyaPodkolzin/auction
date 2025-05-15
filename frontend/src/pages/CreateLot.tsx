@@ -250,13 +250,74 @@ const CreateLot: React.FC = () => {
                   hidden
                   multiple
                   accept="image/*"
-                  onChange={handleImageChange}
+                  capture="environment"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      const files = Array.from(e.target.files);
+                      setFormData(prev => ({
+                        ...prev,
+                        images: files
+                      }));
+                    }
+                  }}
+                  onClick={(e) => {
+                    // Reset the value to ensure onChange fires even if the same file is selected
+                    (e.target as HTMLInputElement).value = '';
+                  }}
                 />
               </Button>
               {formData.images.length > 0 && (
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {formData.images.length} изображение(й) выбрано
-                </Typography>
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="body2">
+                    {formData.images.length} изображение(й) выбрано
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                    {formData.images.map((file, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          position: 'relative',
+                          width: 100,
+                          height: 100,
+                          border: '1px solid #ccc',
+                          borderRadius: 1,
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={`Preview ${index + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                        />
+                        <IconButton
+                          size="small"
+                          sx={{
+                            position: 'absolute',
+                            top: 0,
+                            right: 0,
+                            bgcolor: 'rgba(0,0,0,0.5)',
+                            color: 'white',
+                            '&:hover': {
+                              bgcolor: 'rgba(0,0,0,0.7)'
+                            }
+                          }}
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              images: prev.images.filter((_, i) => i !== index)
+                            }));
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
               )}
             </Grid>
 
