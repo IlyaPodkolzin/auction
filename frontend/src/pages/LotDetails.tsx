@@ -290,7 +290,19 @@ const LotDetails: React.FC = () => {
 
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h4" gutterBottom>
+            <Typography 
+              variant="h4" 
+              gutterBottom
+              sx={{
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+                fontSize: {
+                  xs: '1.5rem',
+                  sm: '2rem',
+                  md: '2.125rem'
+                }
+              }}
+            >
               {lot.title}
             </Typography>
             <Typography variant="body1" paragraph>
@@ -310,7 +322,19 @@ const LotDetails: React.FC = () => {
                 Заканчивается: {format(new Date(lot.endTime), 'd MMMM yyyy, HH:mm', { locale: ru })}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Продавец: {lot.seller.name || 'Аноним'}
+                Продавец: <Typography
+                  component="span"
+                  sx={{
+                    color: 'primary.main',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      textDecoration: 'underline'
+                    }
+                  }}
+                  onClick={() => navigate(`/profile/${lot.seller.id}`)}
+                >
+                  {lot.seller.name || 'Аноним'}
+                </Typography>
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Категория: {CategoryTranslations[lot.category]}

@@ -19,7 +19,7 @@ import {
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import axios from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
-import { format } from 'date-fns';
+import { format, addHours, subHours } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 // Define categories enum
@@ -99,10 +99,21 @@ const CreateLot: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    if (name === 'startTime' || name === 'endTime') {
+      // Конвертируем локальное время в UTC
+      const localDate = new Date(value);
+      const utcDate = subHours(localDate, 3); // Вычитаем 3 часа для компенсации
+      setFormData(prev => ({
+        ...prev,
+        [name]: utcDate.toISOString().slice(0, 16)
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleSelectChange = (e: SelectChangeEvent) => {
@@ -129,7 +140,6 @@ const CreateLot: React.FC = () => {
 
     try {
       const formDataToSend = new FormData();
-      console.log(formData);
 
       Object.entries(formData).forEach(([key, value]) => {
         if (key === 'images') {
@@ -140,7 +150,6 @@ const CreateLot: React.FC = () => {
           formDataToSend.append(key, value);
         }
       });
-      console.log(formDataToSend.get("title"));
 
       const response = await axios.post('/api/lots', formDataToSend, {
         headers: {
@@ -255,6 +264,7 @@ const CreateLot: React.FC = () => {
                 inputProps={{
                   min: new Date().toISOString().slice(0, 16)
                 }}
+                helperText="Время указано по московскому времени (UTC+3)"
               />
             </Grid>
 
@@ -271,6 +281,7 @@ const CreateLot: React.FC = () => {
                 inputProps={{
                   min: formData.startTime || new Date().toISOString().slice(0, 16)
                 }}
+                helperText="Время указано по московскому времени (UTC+3)"
               />
             </Grid>
 
@@ -282,32 +293,6 @@ const CreateLot: React.FC = () => {
                   fullWidth
                 >
                   Загрузить изображения
-                  <input
-                    type="file"
-                    hidden
-                    multiple
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        const files = Array.from(e.target.files);
-                        setFormData(prev => ({
-                          ...prev,
-                          images: files
-                        }));
-                      }
-                    }}
-                    onClick={(e) => {
-                      (e.target as HTMLInputElement).value = '';
-                    }}
-                  />
-                </Button>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  fullWidth
-                >
-                  Сделать фото
                   <input
                     type="file"
                     hidden
