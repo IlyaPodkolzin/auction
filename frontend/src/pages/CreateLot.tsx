@@ -277,11 +277,37 @@ const CreateLot: React.FC = () => {
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Button
+                  variant="contained"
+                  component="label"
+                  fullWidth
+                >
+                  Загрузить изображения
+                  <input
+                    type="file"
+                    hidden
+                    multiple
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const files = Array.from(e.target.files);
+                        setFormData(prev => ({
+                          ...prev,
+                          images: files
+                        }));
+                      }
+                    }}
+                    onClick={(e) => {
+                      (e.target as HTMLInputElement).value = '';
+                    }}
+                  />
+                </Button>
+                <Button
                   variant="outlined"
                   component="label"
                   fullWidth
                 >
-                  Загрузить изображение
+                  Сделать фото
                   <input
                     type="file"
                     hidden
