@@ -37,5 +37,7 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db
 
-# Uploads
-uploads/ 
+
+# Ignore all files in uploads directory except default-lot.jpg
+backend/uploads/*
+!backend/uploads/default-lot.jpg 
