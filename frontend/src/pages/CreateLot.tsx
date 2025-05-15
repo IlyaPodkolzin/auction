@@ -19,7 +19,6 @@ import {
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import axios from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
-import { format, addHours, subHours } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 // Define categories enum
@@ -99,21 +98,10 @@ const CreateLot: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
-    if (name === 'startTime' || name === 'endTime') {
-      // Конвертируем локальное время в UTC
-      const localDate = new Date(value);
-      const utcDate = subHours(localDate, 3); // Вычитаем 3 часа для компенсации
-      setFormData(prev => ({
-        ...prev,
-        [name]: utcDate.toISOString().slice(0, 16)
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleSelectChange = (e: SelectChangeEvent) => {
@@ -266,7 +254,6 @@ const CreateLot: React.FC = () => {
                 inputProps={{
                   min: new Date().toISOString().slice(0, 16)
                 }}
-                helperText="Время указано по московскому времени (UTC+3)"
               />
             </Grid>
 
@@ -283,7 +270,6 @@ const CreateLot: React.FC = () => {
                 inputProps={{
                   min: formData.startTime || new Date().toISOString().slice(0, 16)
                 }}
-                helperText="Время указано по московскому времени (UTC+3)"
               />
             </Grid>
 
