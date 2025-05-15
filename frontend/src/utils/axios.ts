@@ -13,7 +13,9 @@ const instance = axios.create({
 
 instance.interceptors.request.use(
   (config) => {
-    console.log('Making request to:', config.baseURL + config.url);
+    const baseURL = config.baseURL || '';
+    const url = config.url || '';
+    console.log('Making request to:', baseURL + url);
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
