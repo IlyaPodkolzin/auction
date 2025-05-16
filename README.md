@@ -1,125 +1,129 @@
-# Auction Application
+# Антикварный аукцион
 
-A full-stack auction application built with React, Node.js, Express, and PostgreSQL.
+Фуллстек-приложение для аукциона антиквариата и памятных вещей.
+Разработано в рамках курсовой работы по дисциплине "Разработка клиент-серверных приложений".
 
-## Features
+## Функционал
 
-- User authentication with Google OAuth
-- Create and manage auction lots
-- Place bids on active lots
-- Real-time bid updates
-- View your bids and created lots
-- Image upload support
-- Responsive design
+- Аутентификация/авторизация через Google OAuth
+- Создание/удаление лотов
+- Создание/удаление ставок для активных лотов
+- Личный кабинет со статистикой проданных лотов
+- Загрузка фотографий для лота
+- Отзывчивый дизайн
+- Наличие системы уведомлений
 
-## Prerequisites
+## Требования
 
-- Node.js (v14 or higher)
-- PostgreSQL (v12 or higher)
-- Google Cloud Platform account (for OAuth)
+- Node.js (v14 или выше)
+- PostgreSQL (v12 или выше)
+- Аккаунт Google Cloud Platform (для OAuth)
 
-## Setup
+## Настройка
 
-### Backend
+### Серверная часть
 
-1. Navigate to the backend directory:
+1. Перейдите в директорию backend:
    ```bash
    cd backend
    ```
 
-2. Install dependencies:
+2. Установите зависимости:
    ```bash
    npm install
    ```
 
-3. Create a `.env` file with the following variables:
+3. Создайте `.env` со следующими переменными окружения:
    ```
    DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auction?schema=public"
    JWT_SECRET="your-secret-key-here"
    PORT=3000
    FRONTEND_URL="http://localhost:3002"
    GOOGLE_CLIENT_ID="your-google-client-id"
+   GOOGLE_CLIENT_SECRET="your-google-client-secret"
    ```
 
-4. Initialize the database:
+4. Инициируйте базу данных:
    ```bash
    npm run prisma:generate
    npm run prisma:migrate
    npm run prisma:seed
    ```
 
-5. Start the development server:
+5. Запустите сервер:
    ```bash
    npm run dev
    ```
 
-### Frontend
+### Клиентская часть
 
-1. Navigate to the frontend directory:
+1. Перейдите в директорию frontend:
    ```bash
    cd frontend
    ```
 
-2. Install dependencies:
+2. Установите зависимости:
    ```bash
    npm install
    ```
 
-3. Create a `.env` file with the following variables:
+3. Создайте `.env` со следующими переменными окружения:
    ```
    REACT_APP_API_URL="http://localhost:3000/api"
    REACT_APP_GOOGLE_CLIENT_ID="your-google-client-id"
+   REACT_APP_WS_URL="ws://localhost:3000/api"
+   PORT=3001
    ```
 
-4. Start the development server:
+4. Запустите клиент:
    ```bash
    npm start
    ```
 
-## Google OAuth Setup
+## Настройка Google OAuth
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Navigate to "APIs & Services" > "Credentials"
-4. Create a new OAuth 2.0 Client ID
-5. Add the following authorized JavaScript origins:
+1. Перейдите в [Google Cloud Console](https://console.cloud.google.com/)
+2. Создайте новый проект
+3. Перейдите в "APIs & Services" > "Credentials"
+4. Создайте новый OAuth 2.0 Client ID
+5. Добавьте authorized JavaScript origins:
    - `http://localhost:3001`
-   - `http://localhost:3002`
-6. Add the following authorized redirect URIs:
+6. Добавьте authorized redirect URIs:
    - `http://localhost:3001`
-   - `http://localhost:3002`
-7. Copy the Client ID and add it to both frontend and backend `.env` files
+   - `http://localhost:3001:login`
+7. Скопируйте Client ID и Client Secret и добавьте в `.env`
 
-## Database Schema
+## Схема базы данных
 
-The application uses the following main models:
+Главные модели приложения:
 
-- User: Stores user information
-- Lot: Represents auction items
-- Bid: Records bids placed on lots
+- User: пользователь
+- Lot: лот
+- Bid: ставка
+- Notification: уведомление
 
-## API Endpoints
+## Конечные точки API
 
-### Authentication
-- `POST /api/auth/google`: Google OAuth login
-- `GET /api/auth/me`: Get current user
+### Авторизация
+- `POST /api/auth/google`: через Google OAuth
+- `GET /api/auth/me`: текущий пользователь
 
-### Lots
-- `GET /api/lots`: Get all active lots
-- `GET /api/lots/my-lots`: Get user's lots
-- `GET /api/lots/:id`: Get single lot
-- `POST /api/lots`: Create new lot
-- `PATCH /api/lots/:id/status`: Update lot status
+### Лоты
+- `GET /api/lots`: все активные лоты
+- `GET /api/lots/my-lots`: лоты пользователя
+- `GET /api/lots/:id`: конкретный лот
+- `POST /api/lots`: создать новый лот
+- `DELETE /api/lots/:id`: удалить конкретный лот
 
-### Bids
-- `GET /api/bids/lot/:lotId`: Get bids for a lot
-- `GET /api/bids/user`: Get user's bids
-- `POST /api/bids`: Place a bid
+### Ставки
+- `GET /api/bids/lot/:lotId`: ставки на конкретный лот
+- `GET /api/bids/user`: ставки пользователя
+- `POST /api/bids`: сделать ставку
+- `DELETE /api/bids/:id`: удалить конкретную ставку
 
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request 
+## Уведомления
+- `GET /api/notifications/`: все уведомления пользователя
+- `PATCH /api/notifications/:id/read`: пометить уведомление прочитанным
+- `PATCH /api/notifications/read-all`: пометить все уведомления пользователя прочитанными
+- `DELETE /api/notifications/`: удалить все уведомления пользователя
+- `DELETE /api/notifications/:id`: удалить конкретное уведомление пользователя
